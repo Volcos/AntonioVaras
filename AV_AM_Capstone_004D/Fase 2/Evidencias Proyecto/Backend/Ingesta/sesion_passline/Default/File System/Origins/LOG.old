@@ -1,0 +1,5 @@
+2026/09/22-18:04:37.550 5084 Log #6: 0 ops saved to Table #7 OK
+2026/09/22-18:04:37.551 5084 Archiving C:\Users\varga\OneDrive\Documentos\GitHub\TEST\Testing\sesion_passline\Default\File System\Origins/000006.log: OK
+2026/09/22-18:04:37.551 5084 Table #4: 3 entries OK
+2026/09/22-18:04:37.554 5084 Archiving C:\Users\varga\OneDrive\Documentos\GitHub\TEST\Testing\sesion_passline\Default\File System\Origins/MANIFEST-000001: OK
+2026/09/22-18:04:37.565 5084 **** Repaired leveldb C:\Users\varga\OneDrive\Documentos\GitHub\TEST\Testing\sesion_passline\Default\File System\Origins; recovered 1 files; 190 bytes. Some data may have been lost. ****

@@ -1,0 +1,28 @@
+{
+  "name": "Testing",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "bullmq": "^6.3.4",
+    "debug": "^4.4.3",
+    "dotenv": "^18.0.3",
+    "got": "^15.1.0",
+    "ioredis": "^6.0.0",
+    "metascraper": "^5.56.2",
+    "metascraper-date": "^5.56.2",
+    "metascraper-description": "^5.56.2",
+    "metascraper-image": "^5.56.2",
+    "metascraper-title": "^5.56.2",
+    "playwright": "^1.62.1",
+    "playwright-extra": "^4.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2"
+  }
+}
