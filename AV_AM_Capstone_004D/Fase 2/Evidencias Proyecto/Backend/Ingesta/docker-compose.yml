@@ -1,0 +1,20 @@
+services:
+  redis:
+    image: redis:alpine
+    container_name: redis-bullmq
+    ports:
+      - "6379:6379"
+
+  scraper-app:
+    build: .
+    container_name: passline-scraper
+    shm_size: '2gb'
+    init: true
+    depends_on:
+      - redis
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - PYTHONUNBUFFERED=1
+      - NODE_DISABLE_COLORS=0
+    restart: always
