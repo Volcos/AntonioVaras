@@ -4,6 +4,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:capstone/service/api_event.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'package:flutter/services.dart';
+
 class EventDetailScreen extends StatelessWidget {
   final ApiEvent event;
 
@@ -31,8 +33,10 @@ class EventDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light,
+      child: Scaffold(
+        backgroundColor: Colors.black,
       body: Stack(
         children: [
           // Imagen Full Bleed
@@ -210,6 +214,7 @@ class EventDetailScreen extends StatelessWidget {
             ),
           ),
         ],
+      ),
       ),
     );
   }

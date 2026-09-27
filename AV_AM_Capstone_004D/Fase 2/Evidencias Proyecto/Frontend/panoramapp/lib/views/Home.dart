@@ -5,6 +5,8 @@ import 'package:capstone/service/api_event.dart';
 import 'package:capstone/service/web_service.dart';
 import 'package:capstone/views/event_detail_screen.dart'; // Importamos la nueva pantalla
 
+import 'package:flutter/services.dart';
+
 class Home extends StatefulWidget {
   const Home({super.key});
 
@@ -24,8 +26,10 @@ class _HomeState extends State<Home> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black, // Fondo negro profundo (minimalista)
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light,
+      child: Scaffold(
+        backgroundColor: Colors.black, // Fondo negro profundo (minimalista)
       body: Stack(
         children: [
           // Contenido principal
@@ -107,6 +111,7 @@ class _HomeState extends State<Home> {
             ),
           ),
         ],
+      ),
       ),
     );
   }
