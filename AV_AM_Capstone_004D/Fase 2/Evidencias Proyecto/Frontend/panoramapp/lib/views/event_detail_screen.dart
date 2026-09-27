@@ -106,7 +106,7 @@ class EventDetailScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                   
-                  // Píldoras de información
+                  // capsulas de información
                   Wrap(
                     spacing: 10,
                     runSpacing: 10,
