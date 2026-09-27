@@ -4,7 +4,9 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:capstone/service/api_event.dart';
 import 'package:capstone/service/web_service.dart';
+import 'package:capstone/service/bookmark_manager.dart'; // Importamos el manager de guardados
 import 'package:capstone/views/event_detail_screen.dart'; 
+import 'package:capstone/views/saved_events.dart'; // Importamos la nueva vista de guardados
 
 class Home extends StatefulWidget {
   const Home({super.key});
@@ -39,7 +41,7 @@ class _HomeState extends State<Home> {
             children: [
               _buildListaEventos(),
               _buildPlaceholder('Explorar'),
-              _buildPlaceholder('Guardados'),
+              const SavedEventsView(), // Usamos la vista separada
               _buildPlaceholder('Ajustes'),
             ],
           ),
@@ -82,6 +84,7 @@ class _HomeState extends State<Home> {
 
           // Acá está la navbar custom tipo luquid glass
           Positioned(
+            key: const ValueKey('bottom_nav_bar'), // ¡LA CLAVE DE LA ANIMACIÓN!
             bottom: 30,
             left: 20,
             right: 20,
@@ -146,150 +149,172 @@ class _HomeState extends State<Home> {
           itemCount: events.length,
           itemBuilder: (context, index) {
             final event = events[index];
-            return GestureDetector(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  CupertinoPageRoute(builder: (context) => EventDetailScreen(event: event)),
-                );
-              },
-              child: Container(
-                margin: const EdgeInsets.only(bottom: 25),
-                height: 320,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(35),
-                  image: DecorationImage(
-                    image: event.imagen.isNotEmpty
-                        ? NetworkImage(event.imagen)
-                    //foto aleatoria en caso de error
-                        : const NetworkImage('https://images.unsplash.com/photo-1549834125-82d3c48159a3?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'),
-                    fit: BoxFit.cover,
-                  ),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x4D000000),
-                      blurRadius: 20,
-                      offset: Offset(0, 10),
-                    ),
-                  ],
-                ),
-                child: Stack(
-                  children: [
-                    Positioned.fill(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(35),
-                          gradient: const LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              Color(0x00000000),
-                              Color(0x80000000),
-                            ],
-                            stops: [0.5, 1.0],
-                          ),
-                        ),
-                      ),
-                    ),
-                    
-                    Positioned(
-                      top: 15,
-                      right: 15,
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(20),
-                        child: BackdropFilter(
-                          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                          child: Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: const Color(0x33000000),
-                              shape: BoxShape.circle,
-                              border: Border.all(color: const Color(0x33FFFFFF), width: 0.5),
-                            ),
-                            child: const Icon(CupertinoIcons.bookmark, color: Colors.white, size: 20),
-                          ),
-                        ),
-                      ),
-                    ),
-                    
-                    Positioned(
-                      bottom: 15,
-                      left: 15,
-                      right: 15,
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(25),
-                        child: BackdropFilter(
-                          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                          child: Container(
-                            padding: const EdgeInsets.all(15),
-                            decoration: BoxDecoration(
-                              color: const Color(0x33000000),
-                              borderRadius: BorderRadius.circular(25),
-                              border: Border.all(color: const Color(0x4DFFFFFF), width: 0.5),
-                            ),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        event.nombre,
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.w600,
-                                          letterSpacing: -0.5,
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        event.fechaInicio.contains('\n') 
-                                            ? 'Múltiples Fechas • ${event.localizacion}'
-                                            : '${event.fechaInicio} • ${event.localizacion}',
-                                        style: const TextStyle(
-                                          color: Color(0xB3FFFFFF),
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w400,
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  child: const Text(
-                                    'Ver',
-                                    style: TextStyle(
-                                      color: Colors.black,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
+            return _buildEventCard(event, context); // Reusamos el diseño de la tarjeta
           },
         );
       },
+    );
+  }
+
+  // Extrajimos el contenedor de la tarjeta para poder usarlo tanto en Home como en Guardados
+  Widget _buildEventCard(ApiEvent event, BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          CupertinoPageRoute(builder: (context) => EventDetailScreen(event: event)),
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 25),
+        height: 320,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(35),
+          image: DecorationImage(
+            image: event.imagen.isNotEmpty
+                ? NetworkImage(event.imagen)
+            //foto aleatoria en caso de error
+                : const NetworkImage('https://images.unsplash.com/photo-1549834125-82d3c48159a3?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'),
+            fit: BoxFit.cover,
+          ),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x4D000000),
+              blurRadius: 20,
+              offset: Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(35),
+                  gradient: const LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Color(0x00000000),
+                      Color(0x80000000),
+                    ],
+                    stops: [0.5, 1.0],
+                  ),
+                ),
+              ),
+            ),
+            
+            Positioned(
+              top: 15,
+              right: 15,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                  child: GestureDetector(
+                    onTap: () {
+                      // Usamos el manager para guardar/borrar el evento
+                      BookmarkManager().toggleBookmark(event);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0x33000000),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: const Color(0x33FFFFFF), width: 0.5),
+                      ),
+                      // Escuchamos si este evento en particular está guardado para pintarlo o no
+                      child: ValueListenableBuilder<List<ApiEvent>>(
+                        valueListenable: BookmarkManager().savedEvents,
+                        builder: (context, saved, _) {
+                          final isSaved = BookmarkManager().isSaved(event);
+                          return Icon(
+                            isSaved ? CupertinoIcons.bookmark_fill : CupertinoIcons.bookmark, 
+                            color: isSaved ? Colors.pinkAccent : Colors.white, 
+                            size: 20
+                          );
+                        }
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            
+            Positioned(
+              bottom: 15,
+              left: 15,
+              right: 15,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(25),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                  child: Container(
+                    padding: const EdgeInsets.all(15),
+                    decoration: BoxDecoration(
+                      color: const Color(0x33000000),
+                      borderRadius: BorderRadius.circular(25),
+                      border: Border.all(color: const Color(0x4DFFFFFF), width: 0.5),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                event.nombre,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: -0.5,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                event.fechaInicio.contains('\n') 
+                                    ? 'Múltiples Fechas • ${event.localizacion}'
+                                    : '${event.fechaInicio} • ${event.localizacion}',
+                                style: const TextStyle(
+                                  color: Color(0xB3FFFFFF),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w400,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: const Text(
+                            'Ver',
+                            style: TextStyle(
+                              color: Colors.black,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -357,12 +382,9 @@ class _GlassNavBarState extends State<GlassNavBar> {
   }
 
   void _onTapDown(TapDownDetails details, double maxWidth) {
-    final tabWidth = maxWidth / widget.items.length;
-    final index = (details.localPosition.dx / tabWidth).floor().clamp(0, widget.items.length - 1);
-    setState(() {
-      _dragX = index * tabWidth;
-    });
-    widget.onIndexChanged(index);
+    // Ya no hacemos lógica de set state acá, porque GestureDetector está consumiendo todos los taps,
+    // incluso si ocurren en el index actual, causando glitch visual por reseteos. 
+    // Dejaremos que el _dragX se alinee cuando sea necesario y que la animación se dispare por el currentIndex natural.
   }
 
   @override
@@ -378,13 +400,15 @@ class _GlassNavBarState extends State<GlassNavBar> {
           _hasInitialized = true;
         }
 
+        // Si NO estamos arrastrando (ej: hubo un tap), usa targetX para que el TweenAnimationBuilder anime hasta ahí.
         final currentX = _isDragging ? _dragX : targetX;
 
         return GestureDetector(
           onPanStart: (d) => _onPanStart(d, constraints.maxWidth),
           onPanUpdate: (d) => _onPanUpdate(d, constraints.maxWidth),
           onPanEnd: (d) => _onPanEnd(d, constraints.maxWidth),
-          onTapDown: (d) => _onTapDown(d, constraints.maxWidth),
+          // Quitamos onTapDown del detector global de arrastre, 
+          // usaremos los GestureDetector de cada ícono individual que ya teníamos creados para manejar los taps.
           child: ClipRRect(
             borderRadius: BorderRadius.circular(40),
             child: BackdropFilter(
@@ -410,7 +434,24 @@ class _GlassNavBarState extends State<GlassNavBar> {
                         // Capa 1: Fondo (íconos y textos apagados)
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: widget.items.map((item) => _buildIcon(item, isActive: false)).toList(),
+                          children: widget.items.asMap().entries.map((entry) {
+                            int index = entry.key;
+                            NavItem item = entry.value;
+                            
+                            // Agregamos un GestureDetector indivual a la base de cada ícono
+                            return GestureDetector(
+                              onTap: () {
+                                // Al tocar, sincronizamos el arrastre y avisamos el cambio para iniciar la animación fluida
+                                setState(() {
+                                  _isDragging = false;
+                                  _dragX = currentX;
+                                });
+                                widget.onIndexChanged(index);
+                              },
+                              behavior: HitTestBehavior.opaque, // Para que el tap funcione en el espacio vacío del container
+                              child: _buildIcon(item, isActive: false),
+                            );
+                          }).toList(),
                         ),
                         
                         // Capa 2: La lente (burbuja que distorsiona la Capa 1).
