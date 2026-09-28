@@ -10,7 +10,7 @@ class Webservice {
     final ticketmasterEvents = await TicketmasterService.getEvents();
     allEvents.addAll(ticketmasterEvents);
 
-    // 2. Aquí llamarás a otros scrapers en el futuro
+    // 2. Aquí se colocaran más servicios de API o a scrapers en el futuro
     // final eventridEvents = await EventridService.getEvents();
     // allEvents.addAll(eventridEvents);
 

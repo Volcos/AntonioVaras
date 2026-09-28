@@ -2,7 +2,10 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:capstone/service/api_event.dart';
+import 'package:capstone/service/bookmark_manager.dart'; // <-- Traemos el manager
 import 'package:url_launcher/url_launcher.dart';
+
+import 'package:flutter/services.dart';
 
 class EventDetailScreen extends StatelessWidget {
   final ApiEvent event;
@@ -31,8 +34,10 @@ class EventDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light,
+      child: Scaffold(
+        backgroundColor: Colors.black,
       body: Stack(
         children: [
           // Imagen Full Bleed
@@ -78,7 +83,18 @@ class EventDetailScreen extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 _buildGlassButton(CupertinoIcons.back, () => Navigator.pop(context)),
-                _buildGlassButton(CupertinoIcons.bookmark, () {}),
+                // Envolvemos el botón de guardar en el escuchador para que se pinte si está guardado
+                ValueListenableBuilder<List<ApiEvent>>(
+                  valueListenable: BookmarkManager().savedEvents,
+                  builder: (context, saved, _) {
+                    final isSaved = BookmarkManager().isSaved(event);
+                    return _buildGlassButton(
+                      isSaved ? CupertinoIcons.bookmark_fill : CupertinoIcons.bookmark, 
+                      () => BookmarkManager().toggleBookmark(event),
+                      iconColor: isSaved ? Colors.pinkAccent : Colors.white,
+                    );
+                  }
+                ),
               ],
             ),
           ),
@@ -102,7 +118,7 @@ class EventDetailScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                   
-                  // Píldoras de información
+                  // capsulas de información
                   Wrap(
                     spacing: 10,
                     runSpacing: 10,
@@ -211,10 +227,11 @@ class EventDetailScreen extends StatelessWidget {
           ),
         ],
       ),
+      ),
     );
   }
 
-  Widget _buildGlassButton(IconData icon, VoidCallback onTap) {
+  Widget _buildGlassButton(IconData icon, VoidCallback onTap, {Color iconColor = Colors.white}) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(20),
       child: BackdropFilter(
@@ -228,7 +245,7 @@ class EventDetailScreen extends StatelessWidget {
               shape: BoxShape.circle,
               border: Border.all(color: const Color(0x4DFFFFFF), width: 0.5),
             ),
-            child: Icon(icon, color: Colors.white, size: 22),
+            child: Icon(icon, color: iconColor, size: 22),
           ),
         ),
       ),
