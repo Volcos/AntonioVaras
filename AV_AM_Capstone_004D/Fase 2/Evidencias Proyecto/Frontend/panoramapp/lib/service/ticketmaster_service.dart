@@ -54,13 +54,20 @@ class TicketmasterService {
 
     // 2. EXTRAER LOCALIZACIÓN (Venue / Estadio)
     String venueName = 'Lugar por confirmar';
+    String? lat;
+    String? lng;
     if (json['_embedded'] != null &&
         json['_embedded']['venues'] != null &&
         json['_embedded']['venues'].isNotEmpty) {
+      var venue = json['_embedded']['venues'][0];
       venueName = _asString(
-        json['_embedded']['venues'][0]['name'],
+        venue['name'],
         fallback: 'Lugar por confirmar',
       );
+      if (venue['location'] != null) {
+        lat = venue['location']['latitude']?.toString();
+        lng = venue['location']['longitude']?.toString();
+      }
     }
 
     // 3. EXTRAER FECHAS Y HORAS
@@ -105,6 +112,8 @@ class TicketmasterService {
       fechaTermino: '',
       hora: startTime,
       localizacion: venueName,
+      latitude: lat,
+      longitude: lng,
       imagen: imageUrl,
       fuenteInfo: _asString(eventUrl, fallback: 'Ticketmaster'),
       organizador: promoter,

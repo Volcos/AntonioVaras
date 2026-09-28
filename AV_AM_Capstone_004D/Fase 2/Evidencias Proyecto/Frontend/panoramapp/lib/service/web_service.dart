@@ -18,14 +18,23 @@ class Webservice {
     return _groupEvents(allEvents);
   }
 
-  // Combina fechas repetidas del mismo ID sin mezclar eventos homónimos.
+  // Agrupa las distintas funciones del mismo espectáculo en una tarjeta.
   static List<ApiEvent> _groupEvents(List<ApiEvent> rawEvents) {
     Map<String, ApiEvent> groupedMap = {};
 
     for (var event in rawEvents) {
-      final String key = event.id != null && event.id!.isNotEmpty
-          ? event.id!
-          : '${event.nombre.trim().toLowerCase()}|${event.fechaInicio}';
+      final String normalizedName = event.nombre
+          .trim()
+          .toLowerCase()
+          .replaceAll(RegExp(r'\s+'), ' ');
+      final String normalizedUrl = event.fuenteInfo
+          .trim()
+          .toLowerCase()
+          .replaceFirst(RegExp(r'[?#].*$'), '')
+          .replaceAll(RegExp(r'/$'), '');
+      final String key = normalizedName.isNotEmpty
+          ? normalizedName
+          : normalizedUrl;
 
       if (groupedMap.containsKey(key)) {
         // El evento ya existe en el mapa, agregamos la nueva fecha/hora a la lista

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:capstone/service/api_event.dart';
 import 'package:capstone/service/web_service.dart';
 import 'package:capstone/service/bookmark_manager.dart'; // Importamos el manager de guardados
+import 'package:capstone/service/location_service.dart';
 import 'package:capstone/views/event_detail_screen.dart';
 import 'package:capstone/views/saved_events.dart'; // Importamos la nueva vista de guardados
 
@@ -309,17 +310,31 @@ class _HomeState extends State<Home> {
                                 overflow: TextOverflow.ellipsis,
                               ),
                               const SizedBox(height: 4),
-                              Text(
-                                event.fechaInicio.contains('\n')
-                                    ? 'Múltiples Fechas • ${event.localizacion}'
-                                    : '${event.fechaInicio} • ${event.localizacion}',
-                                style: const TextStyle(
-                                  color: Color(0xB3FFFFFF),
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w400,
+                              FutureBuilder<String?>(
+                                future: LocationService.obtenerDireccion(
+                                  event.latitude,
+                                  event.longitude,
                                 ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                                builder: (context, snapshot) {
+                                  final location =
+                                      snapshot.data?.isNotEmpty == true
+                                      ? snapshot.data!
+                                      : (event.localizacion.isNotEmpty
+                                            ? event.localizacion
+                                            : 'Lugar por confirmar');
+                                  return Text(
+                                    event.fechaInicio.contains('\n')
+                                        ? 'Múltiples Fechas • $location'
+                                        : '${event.fechaInicio} • $location',
+                                    style: const TextStyle(
+                                      color: Color(0xB3FFFFFF),
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w400,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  );
+                                },
                               ),
                             ],
                           ),
