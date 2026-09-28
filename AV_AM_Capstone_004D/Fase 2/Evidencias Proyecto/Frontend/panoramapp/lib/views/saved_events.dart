@@ -25,7 +25,12 @@ class SavedEventsView extends StatelessWidget {
 
         return ListView.builder(
           // Padding top es menor acá porque no tenemos la barra de búsqueda estorbando
-          padding: const EdgeInsets.only(top: 60, left: 20, right: 20, bottom: 120), 
+          padding: const EdgeInsets.only(
+            top: 60,
+            left: 20,
+            right: 20,
+            bottom: 120,
+          ),
           itemCount: savedEvents.length,
           itemBuilder: (context, index) {
             final event = savedEvents[index];
@@ -42,7 +47,9 @@ class SavedEventsView extends StatelessWidget {
       onTap: () {
         Navigator.push(
           context,
-          CupertinoPageRoute(builder: (context) => EventDetailScreen(event: event)),
+          CupertinoPageRoute(
+            builder: (context) => EventDetailScreen(event: event),
+          ),
         );
       },
       child: Container(
@@ -50,12 +57,7 @@ class SavedEventsView extends StatelessWidget {
         height: 320,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(35),
-          image: DecorationImage(
-            image: event.imagen.isNotEmpty
-                ? NetworkImage(event.imagen)
-                : const NetworkImage('https://images.unsplash.com/photo-1549834125-82d3c48159a3?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'),
-            fit: BoxFit.cover,
-          ),
+          color: const Color(0xFF202020),
           boxShadow: const [
             BoxShadow(
               color: Color(0x4D000000),
@@ -67,22 +69,32 @@ class SavedEventsView extends StatelessWidget {
         child: Stack(
           children: [
             Positioned.fill(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(35),
+                child: Image.network(
+                  event.imagen.isNotEmpty
+                      ? event.imagen
+                      : 'https://images.unsplash.com/photo-1549834125-82d3c48159a3?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) =>
+                      const SizedBox.shrink(),
+                ),
+              ),
+            ),
+            Positioned.fill(
               child: Container(
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(35),
                   gradient: const LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    colors: [
-                      Color(0x00000000),
-                      Color(0x80000000),
-                    ],
+                    colors: [Color(0x00000000), Color(0x80000000)],
                     stops: [0.5, 1.0],
                   ),
                 ),
               ),
             ),
-            
+
             Positioned(
               top: 15,
               right: 15,
@@ -99,25 +111,30 @@ class SavedEventsView extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: const Color(0x33000000),
                         shape: BoxShape.circle,
-                        border: Border.all(color: const Color(0x33FFFFFF), width: 0.5),
+                        border: Border.all(
+                          color: const Color(0x33FFFFFF),
+                          width: 0.5,
+                        ),
                       ),
                       child: ValueListenableBuilder<List<ApiEvent>>(
                         valueListenable: BookmarkManager().savedEvents,
                         builder: (context, saved, _) {
                           final isSaved = BookmarkManager().isSaved(event);
                           return Icon(
-                            isSaved ? CupertinoIcons.bookmark_fill : CupertinoIcons.bookmark, 
-                            color: isSaved ? Colors.pinkAccent : Colors.white, 
-                            size: 20
+                            isSaved
+                                ? CupertinoIcons.bookmark_fill
+                                : CupertinoIcons.bookmark,
+                            color: isSaved ? Colors.pinkAccent : Colors.white,
+                            size: 20,
                           );
-                        }
+                        },
                       ),
                     ),
                   ),
                 ),
               ),
             ),
-            
+
             Positioned(
               bottom: 15,
               left: 15,
@@ -131,7 +148,10 @@ class SavedEventsView extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: const Color(0x33000000),
                       borderRadius: BorderRadius.circular(25),
-                      border: Border.all(color: const Color(0x4DFFFFFF), width: 0.5),
+                      border: Border.all(
+                        color: const Color(0x4DFFFFFF),
+                        width: 0.5,
+                      ),
                     ),
                     child: Row(
                       children: [
@@ -153,7 +173,7 @@ class SavedEventsView extends StatelessWidget {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                event.fechaInicio.contains('\n') 
+                                event.fechaInicio.contains('\n')
                                     ? 'Múltiples Fechas • ${event.localizacion}'
                                     : '${event.fechaInicio} • ${event.localizacion}',
                                 style: const TextStyle(
@@ -169,7 +189,10 @@ class SavedEventsView extends StatelessWidget {
                         ),
                         const SizedBox(width: 10),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(20),

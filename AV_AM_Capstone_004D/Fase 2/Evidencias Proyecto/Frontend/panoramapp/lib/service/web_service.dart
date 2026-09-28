@@ -14,22 +14,23 @@ class Webservice {
     // final eventridEvents = await EventridService.getEvents();
     // allEvents.addAll(eventridEvents);
 
-    // 3. Agrupar eventos duplicados por nombre
+    // 3. Agrupar solamente registros del mismo evento de Ticketmaster.
     return _groupEvents(allEvents);
   }
 
-  // Agrupa eventos con el mismo nombre y combina sus fechas/horarios
+  // Combina fechas repetidas del mismo ID sin mezclar eventos homónimos.
   static List<ApiEvent> _groupEvents(List<ApiEvent> rawEvents) {
-    // Usamos un mapa donde la clave es el nombre del evento (en minúsculas para evitar problemas de case)
     Map<String, ApiEvent> groupedMap = {};
 
     for (var event in rawEvents) {
-      String key = event.nombre.trim().toLowerCase();
+      final String key = event.id != null && event.id!.isNotEmpty
+          ? event.id!
+          : '${event.nombre.trim().toLowerCase()}|${event.fechaInicio}';
 
       if (groupedMap.containsKey(key)) {
         // El evento ya existe en el mapa, agregamos la nueva fecha/hora a la lista
         var existingEvent = groupedMap[key]!;
-        
+
         // Formateamos la nueva fecha y hora para agregarla
         String newDateTime = event.fechaInicio;
         if (event.hora.isNotEmpty) {
@@ -37,9 +38,10 @@ class Webservice {
         }
 
         // Si la nueva fecha no está ya en la lista de fechas agrupadas (para evitar repetidos exactos)
-        if (newDateTime.isNotEmpty && !existingEvent.fechaInicio.contains(newDateTime)) {
-           // Añadimos un salto de línea y la nueva fecha
-           existingEvent.fechaInicio += "\n$newDateTime";
+        if (newDateTime.isNotEmpty &&
+            !existingEvent.fechaInicio.contains(newDateTime)) {
+          // Añadimos un salto de línea y la nueva fecha
+          existingEvent.fechaInicio += "\n$newDateTime";
         }
       } else {
         // Es la primera vez que vemos este evento, lo formateamos y lo guardamos
@@ -47,7 +49,7 @@ class Webservice {
         if (event.hora.isNotEmpty) {
           event.fechaInicio += " ${event.hora}";
           // Limpiamos el campo de hora individual ya que ahora está agrupado en fechaInicio
-          event.hora = ''; 
+          event.hora = '';
         }
         groupedMap[key] = event;
       }

@@ -1,4 +1,5 @@
 class ApiEvent {
+  final String? id;
   String nombre;
   String descripcion;
   String fechaInicio;
@@ -10,6 +11,7 @@ class ApiEvent {
   String organizador;
 
   ApiEvent({
+    this.id = '',
     required this.nombre,
     required this.descripcion,
     required this.fechaInicio,
@@ -23,6 +25,7 @@ class ApiEvent {
 
   static ApiEvent objJson(Map<String, dynamic> json) {
     return ApiEvent(
+      id: json['id']?.toString() ?? '',
       nombre: json['nombre'] ?? '',
       descripcion: json['descripcion'] ?? '',
       fechaInicio: json['fecha_inicio'] ?? json['fechaInicio'] ?? '',

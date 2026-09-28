@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:capstone/service/api_event.dart';
 import 'package:capstone/service/web_service.dart';
 import 'package:capstone/service/bookmark_manager.dart'; // Importamos el manager de guardados
-import 'package:capstone/views/event_detail_screen.dart'; 
+import 'package:capstone/views/event_detail_screen.dart';
 import 'package:capstone/views/saved_events.dart'; // Importamos la nueva vista de guardados
 
 class Home extends StatefulWidget {
@@ -33,78 +33,86 @@ class _HomeState extends State<Home> {
       value: SystemUiOverlayStyle.light,
       child: Scaffold(
         backgroundColor: Colors.black,
-      body: Stack(
-        children: [
-          // IndexedStack mantiene el estado de todas las vistas, pero solo muestra una a la vez.
-          IndexedStack(
-            index: _currentIndex,
-            children: [
-              _buildListaEventos(),
-              _buildPlaceholder('Explorar'),
-              const SavedEventsView(), // Usamos la vista separada
-              _buildPlaceholder('Ajustes'),
-            ],
-          ),
+        body: Stack(
+          children: [
+            // IndexedStack mantiene el estado de todas las vistas, pero solo muestra una a la vez.
+            IndexedStack(
+              index: _currentIndex,
+              children: [
+                _buildListaEventos(),
+                _buildPlaceholder('Explorar'),
+                const SavedEventsView(), // Usamos la vista separada
+                _buildPlaceholder('Ajustes'),
+              ],
+            ),
 
-          // Buscador flotante en la vista Home (tipo isla)
-          if (_currentIndex == 0)
-            Positioned(
-              top: 60, 
-              left: 20,
-              right: 20,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(30),
-                child: BackdropFilter(
-                  // Le damos este blur grosero para que se mezcle con el fondo
-                  filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                  child: Container(
-                    height: 50,
-                    decoration: BoxDecoration(
-                      color: const Color(0x26FFFFFF),
-                      borderRadius: BorderRadius.circular(30),
-                      border: Border.all(
-                        color: const Color(0x33FFFFFF),
-                        width: 0.5,
+            // Buscador flotante en la vista Home (tipo isla)
+            if (_currentIndex == 0)
+              Positioned(
+                top: 60,
+                left: 20,
+                right: 20,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(30),
+                  child: BackdropFilter(
+                    // Le damos este blur grosero para que se mezcle con el fondo
+                    filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                    child: Container(
+                      height: 50,
+                      decoration: BoxDecoration(
+                        color: const Color(0x26FFFFFF),
+                        borderRadius: BorderRadius.circular(30),
+                        border: Border.all(
+                          color: const Color(0x33FFFFFF),
+                          width: 0.5,
+                        ),
                       ),
-                    ),
-                    child: const TextField(
-                      style: TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                        hintText: 'Buscar eventos...',
-                        hintStyle: TextStyle(color: Color(0x80FFFFFF)),
-                        border: InputBorder.none,
-                        contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-                        suffixIcon: Icon(CupertinoIcons.search, color: Colors.white70),
+                      child: const TextField(
+                        style: TextStyle(color: Colors.white),
+                        decoration: InputDecoration(
+                          hintText: 'Buscar eventos...',
+                          hintStyle: TextStyle(color: Color(0x80FFFFFF)),
+                          border: InputBorder.none,
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 15,
+                          ),
+                          suffixIcon: Icon(
+                            CupertinoIcons.search,
+                            color: Colors.white70,
+                          ),
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
 
-          // Acá está la navbar custom tipo luquid glass
-          Positioned(
-            key: const ValueKey('bottom_nav_bar'), // ¡LA CLAVE DE LA ANIMACIÓN!
-            bottom: 30,
-            left: 20,
-            right: 20,
-            child: GlassNavBar(
-              currentIndex: _currentIndex,
-              onIndexChanged: (index) {
-                setState(() {
-                  _currentIndex = index;
-                });
-              },
-              items: [
-                NavItem(CupertinoIcons.home, 'Inicio'),
-                NavItem(CupertinoIcons.map, 'Explorar'),
-                NavItem(CupertinoIcons.bookmark, 'Guardados'),
-                NavItem(CupertinoIcons.gear, 'Ajustes'),
-              ],
+            // Acá está la navbar custom tipo luquid glass
+            Positioned(
+              key: const ValueKey(
+                'bottom_nav_bar',
+              ), // ¡LA CLAVE DE LA ANIMACIÓN!
+              bottom: 30,
+              left: 20,
+              right: 20,
+              child: GlassNavBar(
+                currentIndex: _currentIndex,
+                onIndexChanged: (index) {
+                  setState(() {
+                    _currentIndex = index;
+                  });
+                },
+                items: [
+                  NavItem(CupertinoIcons.home, 'Inicio'),
+                  NavItem(CupertinoIcons.map, 'Explorar'),
+                  NavItem(CupertinoIcons.bookmark, 'Guardados'),
+                  NavItem(CupertinoIcons.gear, 'Ajustes'),
+                ],
+              ),
             ),
-          ),
-        ],
-      ),
+          ],
+        ),
       ),
     );
   }
@@ -113,7 +121,11 @@ class _HomeState extends State<Home> {
     return Center(
       child: Text(
         title,
-        style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w200),
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 28,
+          fontWeight: FontWeight.w200,
+        ),
       ),
     );
   }
@@ -145,11 +157,19 @@ class _HomeState extends State<Home> {
         final events = snapshot.data!;
 
         return ListView.builder(
-          padding: const EdgeInsets.only(top: 130, left: 20, right: 20, bottom: 120),
+          padding: const EdgeInsets.only(
+            top: 130,
+            left: 20,
+            right: 20,
+            bottom: 120,
+          ),
           itemCount: events.length,
           itemBuilder: (context, index) {
             final event = events[index];
-            return _buildEventCard(event, context); // Reusamos el diseño de la tarjeta
+            return _buildEventCard(
+              event,
+              context,
+            ); // Reusamos el diseño de la tarjeta
           },
         );
       },
@@ -162,7 +182,9 @@ class _HomeState extends State<Home> {
       onTap: () {
         Navigator.push(
           context,
-          CupertinoPageRoute(builder: (context) => EventDetailScreen(event: event)),
+          CupertinoPageRoute(
+            builder: (context) => EventDetailScreen(event: event),
+          ),
         );
       },
       child: Container(
@@ -170,13 +192,7 @@ class _HomeState extends State<Home> {
         height: 320,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(35),
-          image: DecorationImage(
-            image: event.imagen.isNotEmpty
-                ? NetworkImage(event.imagen)
-            //foto aleatoria en caso de error
-                : const NetworkImage('https://images.unsplash.com/photo-1549834125-82d3c48159a3?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'),
-            fit: BoxFit.cover,
-          ),
+          color: const Color(0xFF202020),
           boxShadow: const [
             BoxShadow(
               color: Color(0x4D000000),
@@ -188,22 +204,32 @@ class _HomeState extends State<Home> {
         child: Stack(
           children: [
             Positioned.fill(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(35),
+                child: Image.network(
+                  event.imagen.isNotEmpty
+                      ? event.imagen
+                      : 'https://images.unsplash.com/photo-1549834125-82d3c48159a3?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) =>
+                      const SizedBox.shrink(),
+                ),
+              ),
+            ),
+            Positioned.fill(
               child: Container(
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(35),
                   gradient: const LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    colors: [
-                      Color(0x00000000),
-                      Color(0x80000000),
-                    ],
+                    colors: [Color(0x00000000), Color(0x80000000)],
                     stops: [0.5, 1.0],
                   ),
                 ),
               ),
             ),
-            
+
             Positioned(
               top: 15,
               right: 15,
@@ -221,7 +247,10 @@ class _HomeState extends State<Home> {
                       decoration: BoxDecoration(
                         color: const Color(0x33000000),
                         shape: BoxShape.circle,
-                        border: Border.all(color: const Color(0x33FFFFFF), width: 0.5),
+                        border: Border.all(
+                          color: const Color(0x33FFFFFF),
+                          width: 0.5,
+                        ),
                       ),
                       // Escuchamos si este evento en particular está guardado para pintarlo o no
                       child: ValueListenableBuilder<List<ApiEvent>>(
@@ -229,18 +258,20 @@ class _HomeState extends State<Home> {
                         builder: (context, saved, _) {
                           final isSaved = BookmarkManager().isSaved(event);
                           return Icon(
-                            isSaved ? CupertinoIcons.bookmark_fill : CupertinoIcons.bookmark, 
-                            color: isSaved ? Colors.pinkAccent : Colors.white, 
-                            size: 20
+                            isSaved
+                                ? CupertinoIcons.bookmark_fill
+                                : CupertinoIcons.bookmark,
+                            color: isSaved ? Colors.pinkAccent : Colors.white,
+                            size: 20,
                           );
-                        }
+                        },
                       ),
                     ),
                   ),
                 ),
               ),
             ),
-            
+
             Positioned(
               bottom: 15,
               left: 15,
@@ -254,7 +285,10 @@ class _HomeState extends State<Home> {
                     decoration: BoxDecoration(
                       color: const Color(0x33000000),
                       borderRadius: BorderRadius.circular(25),
-                      border: Border.all(color: const Color(0x4DFFFFFF), width: 0.5),
+                      border: Border.all(
+                        color: const Color(0x4DFFFFFF),
+                        width: 0.5,
+                      ),
                     ),
                     child: Row(
                       children: [
@@ -276,7 +310,7 @@ class _HomeState extends State<Home> {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                event.fechaInicio.contains('\n') 
+                                event.fechaInicio.contains('\n')
                                     ? 'Múltiples Fechas • ${event.localizacion}'
                                     : '${event.fechaInicio} • ${event.localizacion}',
                                 style: const TextStyle(
@@ -292,7 +326,10 @@ class _HomeState extends State<Home> {
                         ),
                         const SizedBox(width: 10),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(20),
@@ -360,10 +397,10 @@ class _GlassNavBarState extends State<GlassNavBar> {
     setState(() {
       _isDragging = true;
       _dragX += details.delta.dx;
-      
+
       final tabWidth = maxWidth / widget.items.length;
       final maxDrag = maxWidth - tabWidth;
-      
+
       // El clamp evita que la burbuja se arranque fuera de la pantalla.
       _dragX = _dragX.clamp(0.0, maxDrag);
     });
@@ -372,18 +409,21 @@ class _GlassNavBarState extends State<GlassNavBar> {
   void _onPanEnd(DragEndDetails details, double maxWidth) {
     final tabWidth = maxWidth / widget.items.length;
     // Lógica para que al soltar la burbuja "se enganche" al ícono más cercano.
-    final targetIndex = ((_dragX + tabWidth / 2) / tabWidth).floor().clamp(0, widget.items.length - 1);
-    
+    final targetIndex = ((_dragX + tabWidth / 2) / tabWidth).floor().clamp(
+      0,
+      widget.items.length - 1,
+    );
+
     setState(() {
       _isDragging = false;
     });
-    
+
     widget.onIndexChanged(targetIndex);
   }
 
   void _onTapDown(TapDownDetails details, double maxWidth) {
     // Ya no hacemos lógica de set state acá, porque GestureDetector está consumiendo todos los taps,
-    // incluso si ocurren en el index actual, causando glitch visual por reseteos. 
+    // incluso si ocurren en el index actual, causando glitch visual por reseteos.
     // Dejaremos que el _dragX se alinee cuando sea necesario y que la animación se dispare por el currentIndex natural.
   }
 
@@ -394,7 +434,7 @@ class _GlassNavBarState extends State<GlassNavBar> {
       builder: (context, constraints) {
         final tabWidth = constraints.maxWidth / widget.items.length;
         final targetX = widget.currentIndex * tabWidth;
-        
+
         if (!_hasInitialized) {
           _dragX = targetX;
           _hasInitialized = true;
@@ -407,7 +447,7 @@ class _GlassNavBarState extends State<GlassNavBar> {
           onPanStart: (d) => _onPanStart(d, constraints.maxWidth),
           onPanUpdate: (d) => _onPanUpdate(d, constraints.maxWidth),
           onPanEnd: (d) => _onPanEnd(d, constraints.maxWidth),
-          // Quitamos onTapDown del detector global de arrastre, 
+          // Quitamos onTapDown del detector global de arrastre,
           // usaremos los GestureDetector de cada ícono individual que ya teníamos creados para manejar los taps.
           child: ClipRRect(
             borderRadius: BorderRadius.circular(40),
@@ -424,7 +464,9 @@ class _GlassNavBarState extends State<GlassNavBar> {
                   ),
                 ),
                 child: TweenAnimationBuilder<double>(
-                  duration: _isDragging ? Duration.zero : const Duration(milliseconds: 350),
+                  duration: _isDragging
+                      ? Duration.zero
+                      : const Duration(milliseconds: 350),
                   curve: Curves.easeOutCubic,
                   tween: Tween<double>(end: currentX),
                   builder: (context, xOffset, child) {
@@ -437,23 +479,25 @@ class _GlassNavBarState extends State<GlassNavBar> {
                           children: widget.items.asMap().entries.map((entry) {
                             int index = entry.key;
                             NavItem item = entry.value;
-                            
+
                             // Agregamos un GestureDetector indivual a la base de cada ícono
-                            return GestureDetector(
-                              onTap: () {
-                                // Al tocar, sincronizamos el arrastre y avisamos el cambio para iniciar la animación fluida
-                                setState(() {
-                                  _isDragging = false;
-                                  _dragX = currentX;
-                                });
-                                widget.onIndexChanged(index);
-                              },
-                              behavior: HitTestBehavior.opaque, // Para que el tap funcione en el espacio vacío del container
-                              child: _buildIcon(item, isActive: false),
+                            return Expanded(
+                              child: GestureDetector(
+                                onTap: () {
+                                  // Al tocar, sincronizamos el arrastre y avisamos el cambio para iniciar la animación fluida
+                                  setState(() {
+                                    _isDragging = false;
+                                    _dragX = currentX;
+                                  });
+                                  widget.onIndexChanged(index);
+                                },
+                                behavior: HitTestBehavior.opaque,
+                                child: _buildIcon(item, isActive: false),
+                              ),
                             );
                           }).toList(),
                         ),
-                        
+
                         // Capa 2: La lente (burbuja que distorsiona la Capa 1).
                         // Ojo acá, los offset manejan que sobrepase su tab y tenga forma alargada.
                         Positioned(
@@ -463,14 +507,20 @@ class _GlassNavBarState extends State<GlassNavBar> {
                           width: tabWidth + 10.0,
                           child: _buildLensBubble(),
                         ),
-                        
+
                         // Capa 3: Íconos y textos prendidos (Rosados y grandes).
                         // Esta capa está ENMASCARADA por el clipper, así que sólo se ve lo que queda dentro de la lupa.
                         ClipRect(
                           clipper: BubbleClipper(x: xOffset, width: tabWidth),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            children: widget.items.map((item) => _buildIcon(item, isActive: true)).toList(),
+                            children: widget.items
+                                .map(
+                                  (item) => Expanded(
+                                    child: _buildIcon(item, isActive: true),
+                                  ),
+                                )
+                                .toList(),
                           ),
                         ),
                       ],
@@ -487,14 +537,14 @@ class _GlassNavBarState extends State<GlassNavBar> {
 
   Widget _buildLensBubble() {
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 0.0, horizontal: 0.0), 
+      margin: const EdgeInsets.symmetric(vertical: 0.0, horizontal: 0.0),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(50), 
+        borderRadius: BorderRadius.circular(50),
         // Borde falso de aberración (es un sweep gradient transparente con colores). Si se quiere cambiar de color, es acá.
         gradient: const SweepGradient(
           colors: [
             Color(0x99FF0055),
-            Color(0x00000000), 
+            Color(0x00000000),
             Color(0x9900FFCC),
             Color(0x00000000),
             Color(0x995500FF),
@@ -512,7 +562,7 @@ class _GlassNavBarState extends State<GlassNavBar> {
             filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
             child: Container(
               decoration: BoxDecoration(
-                color: const Color(0x99000000), 
+                color: const Color(0x99000000),
                 gradient: RadialGradient(
                   center: const Alignment(-0.5, -0.5),
                   radius: 1.5,
@@ -523,7 +573,10 @@ class _GlassNavBarState extends State<GlassNavBar> {
                   ],
                   stops: const [0.0, 0.5, 1.0],
                 ),
-                border: Border.all(color: Colors.white.withOpacity(0.1), width: 0.5),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.1),
+                  width: 0.5,
+                ),
               ),
             ),
           ),
@@ -536,33 +589,39 @@ class _GlassNavBarState extends State<GlassNavBar> {
     // Acá armamos la seccion del RGB split. Si estamos deslizando de la barra y el ícono es el seleccionado, prende la sombra.
     final shadows = (_isDragging && isActive)
         ? [
-            const Shadow(color: Color(0xCCFF0055), offset: Offset(-2.0, 0), blurRadius: 4),
-            const Shadow(color: Color(0xCC00FFCC), offset: Offset(2.0, 0), blurRadius: 4),
+            const Shadow(
+              color: Color(0xCCFF0055),
+              offset: Offset(-2.0, 0),
+              blurRadius: 4,
+            ),
+            const Shadow(
+              color: Color(0xCC00FFCC),
+              offset: Offset(2.0, 0),
+              blurRadius: 4,
+            ),
           ]
         : null;
 
-    return Expanded(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            item.icon,
-            size: isActive ? 28 : 26, 
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(
+          item.icon,
+          size: isActive ? 28 : 26,
+          color: isActive ? Colors.pinkAccent : const Color(0x80FFFFFF),
+          shadows: shadows,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          item.label,
+          style: TextStyle(
             color: isActive ? Colors.pinkAccent : const Color(0x80FFFFFF),
+            fontSize: isActive ? 11 : 10,
+            fontWeight: isActive ? FontWeight.w700 : FontWeight.w400,
             shadows: shadows,
           ),
-          const SizedBox(height: 4),
-          Text(
-            item.label,
-            style: TextStyle(
-              color: isActive ? Colors.pinkAccent : const Color(0x80FFFFFF),
-              fontSize: isActive ? 11 : 10,
-              fontWeight: isActive ? FontWeight.w700 : FontWeight.w400,
-              shadows: shadows,
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -585,4 +644,3 @@ class BubbleClipper extends CustomClipper<Rect> {
     return oldClipper.x != x || oldClipper.width != width;
   }
 }
-
