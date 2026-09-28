@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:capstone/service/api_event.dart';
 import 'package:capstone/service/bookmark_manager.dart'; // <-- Traemos el manager
+import 'package:capstone/service/location_service.dart'; // <-- Location service para geocoding
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:flutter/services.dart';
@@ -154,9 +155,24 @@ class EventDetailScreen extends StatelessWidget {
 
                         if (event.hora.isNotEmpty)
                           _buildInfoPill(CupertinoIcons.clock, event.hora),
-                        _buildInfoPill(
-                          CupertinoIcons.location,
-                          event.localizacion,
+
+                        // Pill de la localización con geocoding dinámico
+                        FutureBuilder<String?>(
+                          future: LocationService.obtenerDireccion(event.latitude, event.longitude),
+                          builder: (context, snapshot) {
+                            String displayLocation = event.localizacion;
+                            if (snapshot.connectionState == ConnectionState.waiting) {
+                              return _buildInfoPill(CupertinoIcons.location, 'Cargando ubicación...');
+                            }
+                            if (snapshot.hasData && snapshot.data != null && snapshot.data!.isNotEmpty) {
+                              // Usar la dirección generada si existe, de lo contrario la predeterminada
+                              displayLocation = snapshot.data!;
+                            }
+                            return _buildInfoPill(
+                              CupertinoIcons.location,
+                              displayLocation.isEmpty ? 'Ubicación desconocida' : displayLocation,
+                            );
+                          },
                         ),
                       ],
                     ),
