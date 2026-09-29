@@ -22,10 +22,29 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'PanoramAPP',
       debugShowCheckedModeBanner: true,
+      
+      // Tema Claro (Día)
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.pink),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.pink,
+          brightness: Brightness.light, // Fuerza el modo claro
+        ),
         useMaterial3: true,
       ),
+      
+      // Tema Oscuro (Noche)
+      darkTheme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.pink,
+          brightness: Brightness.dark, // Fuerza el modo oscuro
+        ),
+        useMaterial3: true,
+      ),
+      
+      // Esta línea hace que la app detecte y aplique automáticamente
+      // el tema (claro/oscuro) que el usuario tiene configurado en su celular
+      themeMode: ThemeMode.system, 
+      
       home: Home(),
     );
   }
