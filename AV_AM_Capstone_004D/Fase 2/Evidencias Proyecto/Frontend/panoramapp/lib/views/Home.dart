@@ -8,6 +8,7 @@ import 'package:capstone/service/bookmark_manager.dart'; // Importamos el manage
 import 'package:capstone/service/location_service.dart';
 import 'package:capstone/views/event_detail_screen.dart';
 import 'package:capstone/views/saved_events.dart'; // Importamos la nueva vista de guardados
+import 'package:capstone/views/map.dart'; // Importamos la vista del mapa
 
 class Home extends StatefulWidget {
   const Home({super.key});
@@ -41,9 +42,9 @@ class _HomeState extends State<Home> {
               index: _currentIndex,
               children: [
                 _buildListaEventos(),
-                _buildPlaceholder('Explorar'),
-                const SavedEventsView(), // Usamos la vista separada
-                _buildPlaceholder('Ajustes'),
+                const MapView(), // Usamos la vista del mapa en el índice 1 (Explorar)
+                const SavedEventsView(), // Usamos la vista separada en el índice 2 (Guardados)
+                _buildPlaceholder('Ajustes'), // Índice 3
               ],
             ),
 
@@ -89,11 +90,11 @@ class _HomeState extends State<Home> {
                 ),
               ),
 
-            // Acá está la navbar custom tipo luquid glass
+            // navbar custom tipo luquid glass
             Positioned(
               key: const ValueKey(
                 'bottom_nav_bar',
-              ), // ¡LA CLAVE DE LA ANIMACIÓN!
+              ), // animacion
               bottom: 30,
               left: 20,
               right: 20,
