@@ -1,0 +1,13 @@
+node_modules/
+
+.env
+*.env
+
+*.log
+npm-debug.log*
+debug_cloudflare.png
+
+
+Thumbs.db
+
+.vscode/
