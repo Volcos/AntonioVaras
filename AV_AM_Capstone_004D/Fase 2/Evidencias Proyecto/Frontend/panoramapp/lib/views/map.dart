@@ -89,8 +89,9 @@ class _MapViewState extends State<MapView> {
       floatingActionButton: Padding(
         padding: const EdgeInsets.only(bottom: 100.0),
         child: FloatingActionButton(
-          backgroundColor: const Color(0x33FFFFFF),
-          elevation: 0,
+          backgroundColor: isDarkMode ? const Color(0x33FFFFFF) : Colors.grey
+          ,
+          elevation: isDarkMode ? 0 : 4,
           onPressed: () async {
             final controller = _mapController;
             final messenger = ScaffoldMessenger.of(context);
@@ -102,7 +103,7 @@ class _MapViewState extends State<MapView> {
             }
 
             final currentLocation =
-                await LocationService.obtenerUbicacionActual(controller);
+            await LocationService.obtenerUbicacionActual(controller);
 
             if (currentLocation == null) {
               if (!mounted) return;
