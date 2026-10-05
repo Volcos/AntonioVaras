@@ -18,6 +18,7 @@ class _MapViewState extends State<MapView> {
 
   MapLibreMapController? _mapController;
   bool _locationPermissionGranted = false;
+  MyLocationTrackingMode _trackingMode = MyLocationTrackingMode.none;
 
   @override
   void initState() {
@@ -80,7 +81,16 @@ class _MapViewState extends State<MapView> {
         minMaxZoomPreference: const MinMaxZoomPreference(3, 18),
         styleString: mapStyle,
         myLocationEnabled: _locationPermissionGranted,
-        myLocationTrackingMode: MyLocationTrackingMode.none,
+        myLocationTrackingMode: _trackingMode,
+        onCameraTrackingDismissed: () {
+          // Cuando el usuario mueve el mapa manualmente con el dedo, 
+          // el mapa deja de seguir el GPS automáticamente.
+          if (mounted) {
+            setState(() {
+              _trackingMode = MyLocationTrackingMode.none;
+            });
+          }
+        },
         locationEnginePlatforms: LocationService.androidLocationSettings,
         onMapCreated: _onMapCreated,
         onStyleLoadedCallback: _onStyleLoaded,
@@ -103,7 +113,7 @@ class _MapViewState extends State<MapView> {
             }
 
             final currentLocation =
-            await LocationService.obtenerUbicacionActual(controller);
+                await LocationService.obtenerUbicacionActual(controller);
 
             if (currentLocation == null) {
               if (!mounted) return;
@@ -117,9 +127,23 @@ class _MapViewState extends State<MapView> {
               return;
             }
 
+            // 1. Primero animamos la cámara hacia la ubicación con el zoom ideal
             await controller.animateCamera(
-              CameraUpdate.newLatLngZoom(currentLocation, 15),
+              CameraUpdate.newCameraPosition(
+                CameraPosition(
+                  target: currentLocation,
+                  zoom: 15.0,
+                ),
+              ),
             );
+
+            // 2. Una vez que termina la animación, activamos el seguimiento en tiempo real.
+            // Si lo activábamos antes de la animación, el movimiento manual lo cancelaba de inmediato.
+            if (mounted) {
+              setState(() {
+                _trackingMode = MyLocationTrackingMode.tracking;
+              });
+            }
           },
           child: const Icon(Icons.my_location, color: Colors.white),
         ),
