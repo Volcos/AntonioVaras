@@ -2,7 +2,7 @@ import 'dotenv/config';
 import Fastify from "fastify";
 import statusDB from "./routes/status.js";
 import dbConnector from "./plugins/db.js"
-import getAllEvents from './routes/getAllEvents.js';
+import eventos from './routes/getAllEvents.js';
 
 const app = Fastify({
     logger: true
@@ -11,9 +11,11 @@ const app = Fastify({
 const start = async() => {
     try {
         await app.register(dbConnector);
-        //await app.register(statusRoute);
         await app.register(statusDB);
-        await app.register(getAllEvents);
+        // ej: /status/
+        await app.register(eventos);
+        // ej: /eventos/cercanos?lat=-33.43&lng=-70.65
+
         
         const PORT = process.env.PORT || 3000;
         await app.listen({ port: PORT, host: '0.0.0.0' });
