@@ -48,6 +48,50 @@ class _HomeState extends State<Home> {
               ],
             ),
 
+            if (_currentIndex == 0) ...[
+              // Degradados para mejorar el contraste del buscador y del navbar.
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                height: 150,
+                child: IgnorePointer(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.black.withValues(alpha: 1.5),
+                          Colors.transparent,
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                height: 190,
+                child: IgnorePointer(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.transparent,
+                          Colors.black.withValues(alpha: 0.95),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+
             // Buscador flotante en la vista Home (tipo isla)
             if (_currentIndex == 0)
               Positioned(

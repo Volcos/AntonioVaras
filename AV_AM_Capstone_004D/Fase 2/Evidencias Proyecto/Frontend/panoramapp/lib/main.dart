@@ -5,8 +5,26 @@ import 'package:capstone/views/Home.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Oculta las barras del sistema para que el navbar propio de la app no quede obstruido.
-  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  Future<void> hideNavigationBar() async {
+    await SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.manual,
+      overlays: const [SystemUiOverlay.top],
+    );
+  }
+
+  // Oculta la navegación inferior, pero conserva visible el status bar superior.
+  await hideNavigationBar();
+
+  // Android puede volver a mostrar la navegación después de un gesto.
+  await SystemChrome.setSystemUIChangeCallback(
+    (systemOverlaysAreVisible) async {
+      if (!systemOverlaysAreVisible) return;
+
+      await Future<void>.delayed(const Duration(seconds: 2));
+      await SystemChrome.restoreSystemUIOverlays();
+      await hideNavigationBar();
+    },
+  );
 
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
@@ -17,6 +35,10 @@ Future<void> main() async {
   ));
 
   runApp(const MyApp());
+
+  // Android puede mostrar temporalmente la navegación durante el arranque.
+  // La ocultamos nuevamente después de que la interfaz termine de aparecer.
+  Future<void>.delayed(const Duration(seconds: 2), hideNavigationBar);
 }
 
 class MyApp extends StatelessWidget {

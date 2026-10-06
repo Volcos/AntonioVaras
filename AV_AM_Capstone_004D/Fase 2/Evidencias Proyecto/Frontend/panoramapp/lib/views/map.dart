@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 import 'package:capstone/service/location_service.dart';
 
@@ -70,39 +71,47 @@ class _MapViewState extends State<MapView> {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final mapStyle = isDarkMode ? _darkMapStyle : _lightMapStyle;
 
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: MapLibreMap(
-        key: ValueKey('$mapStyle-$_locationPermissionGranted'),
-        initialCameraPosition: const CameraPosition(
-          target: _santiagoCenter,
-          zoom: 12,
+    final overlayStyle = SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness:
+          isDarkMode ? Brightness.light : Brightness.dark,
+      statusBarBrightness: isDarkMode ? Brightness.dark : Brightness.light,
+    );
+
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: overlayStyle,
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: MapLibreMap(
+          key: ValueKey('$mapStyle-$_locationPermissionGranted'),
+          initialCameraPosition: const CameraPosition(
+            target: _santiagoCenter,
+            zoom: 12,
+          ),
+          minMaxZoomPreference: const MinMaxZoomPreference(3, 18),
+          styleString: mapStyle,
+          myLocationEnabled: _locationPermissionGranted,
+          myLocationTrackingMode: _trackingMode,
+          onCameraTrackingDismissed: () {
+            // Cuando el usuario mueve el mapa manualmente con el dedo,
+            // el mapa deja de seguir el GPS automáticamente.
+            if (mounted) {
+              setState(() {
+                _trackingMode = MyLocationTrackingMode.none;
+              });
+            }
+          },
+          locationEnginePlatforms: LocationService.androidLocationSettings,
+          onMapCreated: _onMapCreated,
+          onStyleLoadedCallback: _onStyleLoaded,
+          onUserLocationUpdated: _onUserLocationUpdated,
         ),
-        minMaxZoomPreference: const MinMaxZoomPreference(3, 18),
-        styleString: mapStyle,
-        myLocationEnabled: _locationPermissionGranted,
-        myLocationTrackingMode: _trackingMode,
-        onCameraTrackingDismissed: () {
-          // Cuando el usuario mueve el mapa manualmente con el dedo, 
-          // el mapa deja de seguir el GPS automáticamente.
-          if (mounted) {
-            setState(() {
-              _trackingMode = MyLocationTrackingMode.none;
-            });
-          }
-        },
-        locationEnginePlatforms: LocationService.androidLocationSettings,
-        onMapCreated: _onMapCreated,
-        onStyleLoadedCallback: _onStyleLoaded,
-        onUserLocationUpdated: _onUserLocationUpdated,
-      ),
-      floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 100.0),
-        child: FloatingActionButton(
-          backgroundColor: isDarkMode ? const Color(0x33FFFFFF) : Colors.grey
-          ,
-          elevation: isDarkMode ? 0 : 4,
-          onPressed: () async {
+        floatingActionButton: Padding(
+          padding: const EdgeInsets.only(bottom: 100.0),
+          child: FloatingActionButton(
+            backgroundColor: isDarkMode ? const Color(0x33FFFFFF) : Colors.grey,
+            elevation: isDarkMode ? 0 : 4,
+            onPressed: () async {
             final controller = _mapController;
             final messenger = ScaffoldMessenger.of(context);
             if (controller == null) return;
@@ -144,8 +153,9 @@ class _MapViewState extends State<MapView> {
                 _trackingMode = MyLocationTrackingMode.tracking;
               });
             }
-          },
-          child: const Icon(Icons.my_location, color: Colors.white),
+            },
+            child: const Icon(Icons.my_location, color: Colors.white),
+          ),
         ),
       ),
     );
