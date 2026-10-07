@@ -11,10 +11,12 @@ class TicketmasterService {
         'https://app.ticketmaster.com/discovery/v2/events.json?countryCode=CL&apikey=$_apiKey';
 
     try {
-      final rspta = await http.get(
-        Uri.parse(url),
-        headers: {'Accept': 'application/json'},
-      );
+      final rspta = await http
+          .get(
+            Uri.parse(url),
+            headers: {'Accept': 'application/json'},
+          )
+          .timeout(const Duration(seconds: 5));
 
       if (rspta.statusCode == 200) {
         final rsptaJson = jsonDecode(rspta.body);

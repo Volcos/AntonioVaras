@@ -186,37 +186,76 @@ class _HomeState extends State<Home> {
           );
         } else if (snapshot.hasError) {
           return Center(
-            child: Text(
-              'Error al cargar eventos',
-              style: const TextStyle(color: Colors.white54),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  'Error al cargar eventos: \${snapshot.error}',
+                  style: const TextStyle(color: Colors.white54),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 10),
+                CupertinoButton(
+                  child: const Text('Reintentar'),
+                  onPressed: () {
+                    setState(() {
+                      _eventsFuture = Webservice.getEvents();
+                    });
+                  },
+                ),
+              ],
             ),
           );
         } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return const Center(
-            child: Text(
-              'No hay eventos disponibles.',
-              style: TextStyle(color: Colors.white54, fontSize: 16),
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Text(
+                  'No hay eventos disponibles.',
+                  style: TextStyle(color: Colors.white54, fontSize: 16),
+                ),
+                const SizedBox(height: 10),
+                CupertinoButton(
+                  child: const Text('Cargar de nuevo'),
+                  onPressed: () {
+                    setState(() {
+                      _eventsFuture = Webservice.getEvents();
+                    });
+                  },
+                ),
+              ],
             ),
           );
         }
 
         final events = snapshot.data!;
 
-        return ListView.builder(
-          padding: const EdgeInsets.only(
-            top: 130,
-            left: 20,
-            right: 20,
-            bottom: 120,
-          ),
-          itemCount: events.length,
-          itemBuilder: (context, index) {
-            final event = events[index];
-            return _buildEventCard(
-              event,
-              context,
-            ); // Reusamos el diseño de la tarjeta
+        return RefreshIndicator(
+          onRefresh: () async {
+            setState(() {
+              _eventsFuture = Webservice.getEvents();
+            });
+            await _eventsFuture;
           },
+          color: Colors.pinkAccent,
+          backgroundColor: Colors.black,
+          child: ListView.builder(
+            padding: const EdgeInsets.only(
+              top: 130,
+              left: 20,
+              right: 20,
+              bottom: 120,
+            ),
+            itemCount: events.length,
+            itemBuilder: (context, index) {
+              final event = events[index];
+              return _buildEventCard(
+                event,
+                context,
+              );
+            },
+          ),
         );
       },
     );

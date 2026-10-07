@@ -1,20 +1,30 @@
 import 'api_event.dart';
 import 'ticketmaster_service.dart';
+import 'apibenja_service.dart';
 
 class Webservice {
-  // Este servicio ahora actúa como "Orquestador".
+  // Este servicio actúa como "Orquestador".
   static Future<List<ApiEvent>> getEvents() async {
     List<ApiEvent> allEvents = [];
 
-    // 1. Recolectar eventos de Ticketmaster
-    final ticketmasterEvents = await TicketmasterService.getEvents();
-    allEvents.addAll(ticketmasterEvents);
+    // Recolectar eventos en paralelo con Future.wait
+    final results = await Future.wait([
+      TicketmasterService.getEvents().catchError((e) {
+        print('Error al obtener eventos de Ticketmaster: $e');
+        return <ApiEvent>[];
+      }),
+      ApibenjaService.getEvents().catchError((e) {
+        print('Error al obtener eventos de API Benja: $e');
+        return <ApiEvent>[];
+      }),
+    ]);
 
-    // 2. Aquí se colocaran más servicios de API o a scrapers en el futuro
-    // final eventridEvents = await EventridService.getEvents();
-    // allEvents.addAll(eventridEvents);
+    allEvents.addAll(results[0]);
+    allEvents.addAll(results[1]);
 
-    // 3. Agrupar solamente registros del mismo evento de Ticketmaster.
+    print('Total de eventos consolidados: ${allEvents.length}');
+
+    // Agrupar registros del mismo evento
     return _groupEvents(allEvents);
   }
 
@@ -32,11 +42,13 @@ class Webservice {
           .toLowerCase()
           .replaceFirst(RegExp(r'[?#].*$'), '')
           .replaceAll(RegExp(r'/$'), '');
-      final String key = normalizedName.isNotEmpty
-          ? normalizedName
-          : normalizedUrl;
 
-      if (groupedMap.containsKey(key)) {
+      // Generamos una clave representativa
+      final String key = (normalizedName.isNotEmpty && normalizedName != 'sin nombre')
+          ? normalizedName
+          : (normalizedUrl.isNotEmpty ? normalizedUrl : (event.id ?? ''));
+
+      if (key.isNotEmpty && groupedMap.containsKey(key)) {
         // El evento ya existe en el mapa, agregamos la nueva fecha/hora a la lista
         var existingEvent = groupedMap[key]!;
 
@@ -46,21 +58,19 @@ class Webservice {
           newDateTime += " ${event.hora}";
         }
 
-        // Si la nueva fecha no está ya en la lista de fechas agrupadas (para evitar repetidos exactos)
+        // Si la nueva fecha no está ya en la lista de fechas agrupadas
         if (newDateTime.isNotEmpty &&
             !existingEvent.fechaInicio.contains(newDateTime)) {
-          // Añadimos un salto de línea y la nueva fecha
           existingEvent.fechaInicio += "\n$newDateTime";
         }
       } else {
         // Es la primera vez que vemos este evento, lo formateamos y lo guardamos
-        // Para que el primer registro también tenga el formato consistente "Fecha Hora"
         if (event.hora.isNotEmpty) {
           event.fechaInicio += " ${event.hora}";
-          // Limpiamos el campo de hora individual ya que ahora está agrupado en fechaInicio
           event.hora = '';
         }
-        groupedMap[key] = event;
+        final mapKey = key.isNotEmpty ? key : 'unique_${groupedMap.length}';
+        groupedMap[mapKey] = event;
       }
     }
 
