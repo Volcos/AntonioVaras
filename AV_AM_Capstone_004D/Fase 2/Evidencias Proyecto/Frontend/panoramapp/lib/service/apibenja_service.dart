@@ -4,9 +4,7 @@ import 'api_event.dart';
 
 class ApibenjaService {
   static const List<String> _urls = [
-    'https://a1b2-c3-d4.ngrok-free.app/eventos', // Pega la URL de Ngrok y agrégale /eventos
-    'http://10.155.25.222:3000/eventos',
-    'http://10.0.2.2:3000/eventos',
+    'https://mi-api-311188719547.us-central1.run.app/eventos', // Pegar la URL y agregar /eventos
   ];
 
   static Future<List<ApiEvent>> getEvents() async {
