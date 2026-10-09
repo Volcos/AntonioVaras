@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:capstone/service/api_event.dart';
 import 'package:capstone/service/web_service.dart';
 import 'package:capstone/service/bookmark_manager.dart'; // Importamos el manager de guardados
@@ -18,13 +19,19 @@ class Home extends StatefulWidget {
 }
 
 class _HomeState extends State<Home> {
-  int _currentIndex = 0;
-  late Future<List<ApiEvent>> _eventsFuture;
+  final ValueNotifier<int> _currentIndex = ValueNotifier<int>(0);
+  Future<List<ApiEvent>>? _eventsFuture;
+  bool _mapInitialized = false;
+
+  @override
+  void dispose() {
+    _currentIndex.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
     super.initState();
-    // Guardamos el future de los eventos acá. Así evitamos que la API se llame de nuevo cada vez que hagamos setState.
     _eventsFuture = Webservice.getEvents();
   }
 
@@ -35,129 +42,138 @@ class _HomeState extends State<Home> {
       value: SystemUiOverlayStyle.light,
       child: Scaffold(
         backgroundColor: Colors.black,
-        body: Stack(
-          children: [
-            // IndexedStack mantiene el estado de todas las vistas, pero solo muestra una a la vez.
-            IndexedStack(
-              index: _currentIndex,
+        body: ValueListenableBuilder<int>(
+          valueListenable: _currentIndex,
+          builder: (context, index, child) {
+            return Stack(
               children: [
-                _buildListaEventos(),
-                const MapView(), // Usamos la vista del mapa en el índice 1 (Explorar)
-                const SavedEventsView(), // Usamos la vista separada en el índice 2 (Guardados)
-                _buildPlaceholder('Ajustes'), // Índice 3
-              ],
-            ),
-
-            if (_currentIndex == 0) ...[
-              // Degradados para mejorar el contraste del buscador y del navbar.
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                height: 150,
-                child: IgnorePointer(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.black.withValues(alpha: 1.5),
-                          Colors.transparent,
-                        ],
-                      ),
-                    ),
-                  ),
+                // IndexedStack mantiene el estado de todas las vistas, pero solo muestra una a la vez.
+                IndexedStack(
+                  index: index,
+                  children: [
+                    _buildListaEventos(),
+                    // El mapa es un PlatformView pesado; se crea solo al abrir su pestaña.
+                    _mapInitialized
+                        ? const MapView()
+                        : _buildPlaceholder('Explorar'),
+                    const SavedEventsView(),
+                    _buildPlaceholder('Ajustes'),
+                  ],
                 ),
-              ),
-              Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                height: 190,
-                child: IgnorePointer(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.transparent,
-                          Colors.black.withValues(alpha: 0.95),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
 
-            // Buscador flotante en la vista Home (tipo isla)
-            if (_currentIndex == 0)
-              Positioned(
-                top: 60,
-                left: 20,
-                right: 20,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(30),
-                  child: BackdropFilter(
-                    // Le damos este blur grosero para que se mezcle con el fondo
-                    filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                    child: Container(
-                      height: 50,
-                      decoration: BoxDecoration(
-                        color: const Color(0x26FFFFFF),
-                        borderRadius: BorderRadius.circular(30),
-                        border: Border.all(
-                          color: const Color(0x33FFFFFF),
-                          width: 0.5,
-                        ),
-                      ),
-                      child: const TextField(
-                        style: TextStyle(color: Colors.white),
-                        decoration: InputDecoration(
-                          hintText: 'Buscar eventos...',
-                          hintStyle: TextStyle(color: Color(0x80FFFFFF)),
-                          border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 15,
-                          ),
-                          suffixIcon: Icon(
-                            CupertinoIcons.search,
-                            color: Colors.white70,
+                if (index == 0) ...[
+                  // Degradados para mejorar el contraste del buscador y del navbar.
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: 150,
+                    child: IgnorePointer(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.black.withValues(alpha: 1.5),
+                              Colors.transparent,
+                            ],
                           ),
                         ),
                       ),
                     ),
                   ),
-                ),
-              ),
-
-            // navbar custom tipo luquid glass
-            Positioned(
-              key: const ValueKey(
-                'bottom_nav_bar',
-              ), // animacion
-              bottom: 30,
-              left: 20,
-              right: 20,
-              child: GlassNavBar(
-                currentIndex: _currentIndex,
-                onIndexChanged: (index) {
-                  setState(() {
-                    _currentIndex = index;
-                  });
-                },
-                items: [
-                  NavItem(CupertinoIcons.home, 'Inicio'),
-                  NavItem(CupertinoIcons.map, 'Explorar'),
-                  NavItem(CupertinoIcons.bookmark, 'Guardados'),
-                  NavItem(CupertinoIcons.gear, 'Ajustes'),
+                  Positioned(
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    height: 190,
+                    child: IgnorePointer(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.transparent,
+                              Colors.black.withValues(alpha: 0.95),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                 ],
-              ),
-            ),
-          ],
+
+                // Buscador flotante en la vista Home (tipo isla)
+                if (index == 0)
+                  Positioned(
+                    top: 60,
+                    left: 20,
+                    right: 20,
+                    child: RepaintBoundary(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(30),
+                        child: BackdropFilter(
+                          // Mantiene el efecto visual con menor coste de GPU.
+                          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                          child: Container(
+                            height: 50,
+                            decoration: BoxDecoration(
+                              color: const Color(0x26FFFFFF),
+                              borderRadius: BorderRadius.circular(30),
+                              border: Border.all(
+                                color: const Color(0x33FFFFFF),
+                                width: 0.5,
+                              ),
+                            ),
+                            child: const TextField(
+                              style: TextStyle(color: Colors.white),
+                              decoration: InputDecoration(
+                                hintText: 'Buscar eventos...',
+                                hintStyle: TextStyle(color: Color(0x80FFFFFF)),
+                                border: InputBorder.none,
+                                contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                  vertical: 15,
+                                ),
+                                suffixIcon: Icon(
+                                  CupertinoIcons.search,
+                                  color: Colors.white70,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                // navbar custom tipo luquid glass
+                Positioned(
+                  key: const ValueKey('bottom_nav_bar'), // animacion
+                  bottom: 30,
+                  left: 20,
+                  right: 20,
+                  child: GlassNavBar(
+                    currentIndex: index,
+                    onIndexChanged: (newIndex) {
+                      if (newIndex == 1 && !_mapInitialized) {
+                        _mapInitialized = true;
+                      }
+                      _currentIndex.value = newIndex;
+                    },
+                    items: [
+                      NavItem(CupertinoIcons.home, 'Inicio'),
+                      NavItem(CupertinoIcons.map, 'Explorar'),
+                      NavItem(CupertinoIcons.bookmark, 'Guardados'),
+                      NavItem(CupertinoIcons.gear, 'Ajustes'),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -180,7 +196,8 @@ class _HomeState extends State<Home> {
     return FutureBuilder<List<ApiEvent>>(
       future: _eventsFuture,
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (snapshot.connectionState == ConnectionState.none ||
+            snapshot.connectionState == ConnectionState.waiting) {
           return const Center(
             child: CupertinoActivityIndicator(color: Colors.white, radius: 15),
           );
@@ -199,7 +216,7 @@ class _HomeState extends State<Home> {
                   child: const Text('Reintentar'),
                   onPressed: () {
                     setState(() {
-                      _eventsFuture = Webservice.getEvents();
+                      _eventsFuture = Webservice.getEvents(forceRefresh: true);
                     });
                   },
                 ),
@@ -220,7 +237,7 @@ class _HomeState extends State<Home> {
                   child: const Text('Cargar de nuevo'),
                   onPressed: () {
                     setState(() {
-                      _eventsFuture = Webservice.getEvents();
+                      _eventsFuture = Webservice.getEvents(forceRefresh: true);
                     });
                   },
                 ),
@@ -233,10 +250,11 @@ class _HomeState extends State<Home> {
 
         return RefreshIndicator(
           onRefresh: () async {
+            final refreshedEvents = Webservice.getEvents(forceRefresh: true);
             setState(() {
-              _eventsFuture = Webservice.getEvents();
+              _eventsFuture = refreshedEvents;
             });
-            await _eventsFuture;
+            await refreshedEvents;
           },
           color: Colors.pinkAccent,
           backgroundColor: Colors.black,
@@ -250,10 +268,7 @@ class _HomeState extends State<Home> {
             itemCount: events.length,
             itemBuilder: (context, index) {
               final event = events[index];
-              return _buildEventCard(
-                event,
-                context,
-              );
+              return _buildEventCard(event, context);
             },
           ),
         );
@@ -263,192 +278,200 @@ class _HomeState extends State<Home> {
 
   // Extrajimos el contenedor de la tarjeta para poder usarlo tanto en Home como en Guardados
   Widget _buildEventCard(ApiEvent event, BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          CupertinoPageRoute(
-            builder: (context) => EventDetailScreen(event: event),
-          ),
-        );
-      },
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 25),
-        height: 320,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(35),
-          color: const Color(0xFF202020),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x4D000000),
-              blurRadius: 20,
-              offset: Offset(0, 10),
+    return RepaintBoundary(
+      child: GestureDetector(
+        onTap: () {
+          Navigator.push(
+            context,
+            CupertinoPageRoute(
+              builder: (context) => EventDetailScreen(event: event),
             ),
-          ],
-        ),
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(35),
-                child: Image.network(
-                  event.imagen.isNotEmpty
-                      ? event.imagen
-                      : 'https://images.unsplash.com/photo-1549834125-82d3c48159a3?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) =>
-                      const SizedBox.shrink(),
-                ),
+          );
+        },
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 25),
+          height: 320,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(35),
+            color: const Color(0xFF202020),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x4D000000),
+                blurRadius: 20,
+                offset: Offset(0, 10),
               ),
-            ),
-            Positioned.fill(
-              child: Container(
-                decoration: BoxDecoration(
+            ],
+          ),
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: ClipRRect(
                   borderRadius: BorderRadius.circular(35),
-                  gradient: const LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [Color(0x00000000), Color(0x80000000)],
-                    stops: [0.5, 1.0],
+                  child: CachedNetworkImage(
+                    imageUrl: event.imagen.isNotEmpty
+                        ? event.imagen
+                        : 'https://images.unsplash.com/photo-1549834125-82d3c48159a3?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+                    fit: BoxFit.cover,
+                    memCacheWidth: 800,
+                    memCacheHeight: 640,
+                    maxWidthDiskCache: 800,
+                    maxHeightDiskCache: 640,
+                    placeholder: (context, url) =>
+                        const ColoredBox(color: Color(0xFF202020)),
+                    errorWidget: (context, url, error) =>
+                        const SizedBox.shrink(),
                   ),
                 ),
               ),
-            ),
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(35),
+                    gradient: const LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Color(0x00000000), Color(0x80000000)],
+                      stops: [0.5, 1.0],
+                    ),
+                  ),
+                ),
+              ),
 
-            Positioned(
-              top: 15,
-              right: 15,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(20),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                  child: GestureDetector(
-                    onTap: () {
-                      // Usamos el manager para guardar/borrar el evento
-                      BookmarkManager().toggleBookmark(event);
-                    },
+              Positioned(
+                top: 15,
+                right: 15,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                    child: GestureDetector(
+                      onTap: () {
+                        // Usamos el manager para guardar/borrar el evento
+                        BookmarkManager().toggleBookmark(event);
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: const Color(0x33000000),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: const Color(0x33FFFFFF),
+                            width: 0.5,
+                          ),
+                        ),
+                        // Escuchamos si este evento en particular está guardado para pintarlo o no
+                        child: ValueListenableBuilder<List<ApiEvent>>(
+                          valueListenable: BookmarkManager().savedEvents,
+                          builder: (context, saved, _) {
+                            final isSaved = BookmarkManager().isSaved(event);
+                            return Icon(
+                              isSaved
+                                  ? CupertinoIcons.bookmark_fill
+                                  : CupertinoIcons.bookmark,
+                              color: isSaved ? Colors.pinkAccent : Colors.white,
+                              size: 20,
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              Positioned(
+                bottom: 15,
+                left: 15,
+                right: 15,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(25),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
                     child: Container(
-                      padding: const EdgeInsets.all(10),
+                      padding: const EdgeInsets.all(15),
                       decoration: BoxDecoration(
                         color: const Color(0x33000000),
-                        shape: BoxShape.circle,
+                        borderRadius: BorderRadius.circular(25),
                         border: Border.all(
-                          color: const Color(0x33FFFFFF),
+                          color: const Color(0x4DFFFFFF),
                           width: 0.5,
                         ),
                       ),
-                      // Escuchamos si este evento en particular está guardado para pintarlo o no
-                      child: ValueListenableBuilder<List<ApiEvent>>(
-                        valueListenable: BookmarkManager().savedEvents,
-                        builder: (context, saved, _) {
-                          final isSaved = BookmarkManager().isSaved(event);
-                          return Icon(
-                            isSaved
-                                ? CupertinoIcons.bookmark_fill
-                                : CupertinoIcons.bookmark,
-                            color: isSaved ? Colors.pinkAccent : Colors.white,
-                            size: 20,
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-
-            Positioned(
-              bottom: 15,
-              left: 15,
-              right: 15,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(25),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                  child: Container(
-                    padding: const EdgeInsets.all(15),
-                    decoration: BoxDecoration(
-                      color: const Color(0x33000000),
-                      borderRadius: BorderRadius.circular(25),
-                      border: Border.all(
-                        color: const Color(0x4DFFFFFF),
-                        width: 0.5,
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                event.nombre,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w600,
-                                  letterSpacing: -0.5,
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  event.nombre,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w600,
+                                    letterSpacing: -0.5,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              const SizedBox(height: 4),
-                              FutureBuilder<String?>(
-                                future: LocationService.obtenerDireccion(
-                                  event.latitude,
-                                  event.longitude,
+                                const SizedBox(height: 4),
+                                FutureBuilder<String?>(
+                                  future: LocationService.obtenerDireccion(
+                                    event.latitude,
+                                    event.longitude,
+                                  ),
+                                  builder: (context, snapshot) {
+                                    final location =
+                                        snapshot.data?.isNotEmpty == true
+                                        ? snapshot.data!
+                                        : (event.localizacion.isNotEmpty
+                                              ? event.localizacion
+                                              : 'Lugar por confirmar');
+                                    return Text(
+                                      event.fechaInicio.contains('\n')
+                                          ? 'Múltiples Fechas • $location'
+                                          : '${event.fechaInicio} • $location',
+                                      style: const TextStyle(
+                                        color: Color(0xB3FFFFFF),
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w400,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    );
+                                  },
                                 ),
-                                builder: (context, snapshot) {
-                                  final location =
-                                      snapshot.data?.isNotEmpty == true
-                                      ? snapshot.data!
-                                      : (event.localizacion.isNotEmpty
-                                            ? event.localizacion
-                                            : 'Lugar por confirmar');
-                                  return Text(
-                                    event.fechaInicio.contains('\n')
-                                        ? 'Múltiples Fechas • $location'
-                                        : '${event.fechaInicio} • $location',
-                                    style: const TextStyle(
-                                      color: Color(0xB3FFFFFF),
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w400,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  );
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: const Text(
-                            'Ver',
-                            style: TextStyle(
-                              color: Colors.black,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
+                              ],
                             ),
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 10),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: const Text(
+                              'Ver',
+                              style: TextStyle(
+                                color: Colors.black,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -518,12 +541,6 @@ class _GlassNavBarState extends State<GlassNavBar> {
     });
 
     widget.onIndexChanged(targetIndex);
-  }
-
-  void _onTapDown(TapDownDetails details, double maxWidth) {
-    // Ya no hacemos lógica de set state acá, porque GestureDetector está consumiendo todos los taps,
-    // incluso si ocurren en el index actual, causando glitch visual por reseteos.
-    // Dejaremos que el _dragX se alinee cuando sea necesario y que la animación se dispare por el currentIndex natural.
   }
 
   @override
@@ -666,14 +683,14 @@ class _GlassNavBarState extends State<GlassNavBar> {
                   center: const Alignment(-0.5, -0.5),
                   radius: 1.5,
                   colors: [
-                    Colors.white.withOpacity(0.3),
+                    Colors.white.withValues(alpha: 0.3),
                     Colors.transparent,
-                    Colors.black.withOpacity(0.4),
+                    Colors.black.withValues(alpha: 0.4),
                   ],
                   stops: const [0.0, 0.5, 1.0],
                 ),
                 border: Border.all(
-                  color: Colors.white.withOpacity(0.1),
+                  color: Colors.white.withValues(alpha: 0.1),
                   width: 0.5,
                 ),
               ),

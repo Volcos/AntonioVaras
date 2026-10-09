@@ -24,7 +24,11 @@ class _MapViewState extends State<MapView> {
   @override
   void initState() {
     super.initState();
-    _loadLocationPermission();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _loadLocationPermission();
+      }
+    });
   }
 
   Future<void> _loadLocationPermission() async {
@@ -73,8 +77,7 @@ class _MapViewState extends State<MapView> {
 
     final overlayStyle = SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
-      statusBarIconBrightness:
-          isDarkMode ? Brightness.light : Brightness.dark,
+      statusBarIconBrightness: isDarkMode ? Brightness.light : Brightness.dark,
       statusBarBrightness: isDarkMode ? Brightness.dark : Brightness.light,
     );
 
@@ -83,7 +86,6 @@ class _MapViewState extends State<MapView> {
       child: Scaffold(
         backgroundColor: Colors.black,
         body: MapLibreMap(
-          key: ValueKey('$mapStyle-$_locationPermissionGranted'),
           initialCameraPosition: const CameraPosition(
             target: _santiagoCenter,
             zoom: 12,
@@ -112,47 +114,44 @@ class _MapViewState extends State<MapView> {
             backgroundColor: isDarkMode ? const Color(0x33FFFFFF) : Colors.grey,
             elevation: isDarkMode ? 0 : 4,
             onPressed: () async {
-            final controller = _mapController;
-            final messenger = ScaffoldMessenger.of(context);
-            if (controller == null) return;
+              final controller = _mapController;
+              final messenger = ScaffoldMessenger.of(context);
+              if (controller == null) return;
 
-            if (!_locationPermissionGranted) {
-              await _loadLocationPermission();
-              if (!_locationPermissionGranted || !mounted) return;
-            }
+              if (!_locationPermissionGranted) {
+                await _loadLocationPermission();
+                if (!_locationPermissionGranted || !mounted) return;
+              }
 
-            final currentLocation =
-                await LocationService.obtenerUbicacionActual(controller);
+              final currentLocation =
+                  await LocationService.obtenerUbicacionActual(controller);
 
-            if (currentLocation == null) {
-              if (!mounted) return;
-              messenger.showSnackBar(
-                const SnackBar(
-                  content: Text(
-                    'No se pudo obtener tu ubicación. Verifica que el GPS esté activado.',
+              if (currentLocation == null) {
+                if (!mounted) return;
+                messenger.showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'No se pudo obtener tu ubicación. Verifica que el GPS esté activado.',
+                    ),
                   ),
+                );
+                return;
+              }
+
+              // 1. Primero animamos la cámara hacia la ubicación con el zoom ideal
+              await controller.animateCamera(
+                CameraUpdate.newCameraPosition(
+                  CameraPosition(target: currentLocation, zoom: 15.0),
                 ),
               );
-              return;
-            }
 
-            // 1. Primero animamos la cámara hacia la ubicación con el zoom ideal
-            await controller.animateCamera(
-              CameraUpdate.newCameraPosition(
-                CameraPosition(
-                  target: currentLocation,
-                  zoom: 15.0,
-                ),
-              ),
-            );
-
-            // 2. Una vez que termina la animación, activamos el seguimiento en tiempo real.
-            // Si lo activábamos antes de la animación, el movimiento manual lo cancelaba de inmediato.
-            if (mounted) {
-              setState(() {
-                _trackingMode = MyLocationTrackingMode.tracking;
-              });
-            }
+              // 2. Una vez que termina la animación, activamos el seguimiento en tiempo real.
+              // Si lo activábamos antes de la animación, el movimiento manual lo cancelaba de inmediato.
+              if (mounted) {
+                setState(() {
+                  _trackingMode = MyLocationTrackingMode.tracking;
+                });
+              }
             },
             child: const Icon(Icons.my_location, color: Colors.white),
           ),

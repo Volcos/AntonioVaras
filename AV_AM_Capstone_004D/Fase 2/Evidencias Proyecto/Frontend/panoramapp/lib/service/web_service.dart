@@ -3,8 +3,21 @@ import 'ticketmaster_service.dart';
 import 'apibenja_service.dart';
 
 class Webservice {
+  static Future<List<ApiEvent>>? _eventsRequest;
+
   // Este servicio actúa como "Orquestador".
-  static Future<List<ApiEvent>> getEvents() async {
+  static Future<List<ApiEvent>> getEvents({bool forceRefresh = false}) {
+    final cachedRequest = _eventsRequest;
+    if (!forceRefresh && cachedRequest != null) {
+      return cachedRequest;
+    }
+
+    final request = _loadEvents();
+    _eventsRequest = request;
+    return request;
+  }
+
+  static Future<List<ApiEvent>> _loadEvents() async {
     List<ApiEvent> allEvents = [];
 
     // Recolectar eventos en paralelo con Future.wait
@@ -44,7 +57,8 @@ class Webservice {
           .replaceAll(RegExp(r'/$'), '');
 
       // Generamos una clave representativa
-      final String key = (normalizedName.isNotEmpty && normalizedName != 'sin nombre')
+      final String key =
+          (normalizedName.isNotEmpty && normalizedName != 'sin nombre')
           ? normalizedName
           : (normalizedUrl.isNotEmpty ? normalizedUrl : (event.id ?? ''));
 

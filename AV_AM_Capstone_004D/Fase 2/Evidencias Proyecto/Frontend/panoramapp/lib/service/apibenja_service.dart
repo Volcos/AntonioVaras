@@ -15,7 +15,7 @@ class ApibenjaService {
               Uri.parse(url),
               headers: {'Accept': 'application/json'},
             )
-            .timeout(const Duration(seconds: 5));
+            .timeout(const Duration(seconds: 10));
 
         if (rspta.statusCode == 200) {
           final dynamic rsptaJson = jsonDecode(rspta.body);

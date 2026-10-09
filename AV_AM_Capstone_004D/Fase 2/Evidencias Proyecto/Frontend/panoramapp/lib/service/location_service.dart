@@ -6,12 +6,17 @@ import 'package:permission_handler/permission_handler.dart';
 
 class LocationService {
   static Completer<LatLng>? _locationCompleter;
+  static LatLng? _lastKnownLocation;
+  static final Map<String, String?> _addressCache = {};
+  static final Map<String, Future<String?>> _addressRequests = {};
+
+  static LatLng? get lastKnownLocation => _lastKnownLocation;
 
   static const LocationEnginePlatforms androidLocationSettings =
       LocationEnginePlatforms.android(
         enableHighAccuracy: true,
-        interval: 1000,
-        displacement: 0,
+        interval: 3000,
+        displacement: 5,
       );
 
   static Future<bool> solicitarPermisoUbicacion() async {
@@ -25,6 +30,8 @@ class LocationService {
   }
 
   static void registrarActualizacion(UserLocation location) {
+    _lastKnownLocation = location.position;
+
     final completer = _locationCompleter;
     if (completer == null || completer.isCompleted) return;
 
@@ -63,6 +70,30 @@ class LocationService {
       return null;
     }
 
+    final cacheKey = '$latStr,$lngStr';
+    if (_addressCache.containsKey(cacheKey)) {
+      return _addressCache[cacheKey];
+    }
+
+    final pendingRequest = _addressRequests[cacheKey];
+    if (pendingRequest != null) return pendingRequest;
+
+    final request = _obtenerDireccionSinCache(latStr, lngStr);
+    _addressRequests[cacheKey] = request;
+
+    try {
+      final address = await request;
+      _addressCache[cacheKey] = address;
+      return address;
+    } finally {
+      _addressRequests.remove(cacheKey);
+    }
+  }
+
+  static Future<String?> _obtenerDireccionSinCache(
+    String latStr,
+    String lngStr,
+  ) async {
     try {
       double lat = double.tryParse(latStr) ?? 0.0;
       double lng = double.tryParse(lngStr) ?? 0.0;
