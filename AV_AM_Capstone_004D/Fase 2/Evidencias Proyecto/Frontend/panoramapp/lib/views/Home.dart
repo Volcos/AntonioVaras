@@ -22,6 +22,7 @@ class _HomeState extends State<Home> {
   final ValueNotifier<int> _currentIndex = ValueNotifier<int>(0);
   Future<List<ApiEvent>>? _eventsFuture;
   bool _mapInitialized = false;
+  String _searchQuery = ''; // <-- Nueva variable para el estado del buscador
 
   @override
   void dispose() {
@@ -127,9 +128,15 @@ class _HomeState extends State<Home> {
                                 width: 0.5,
                               ),
                             ),
-                            child: const TextField(
-                              style: TextStyle(color: Colors.white),
-                              decoration: InputDecoration(
+                            child: TextField(
+                              style: const TextStyle(color: Colors.white),
+                              onChanged: (value) {
+                                // Actualizamos la variable y refrescamos la vista
+                                setState(() {
+                                  _searchQuery = value;
+                                });
+                              },
+                              decoration: const InputDecoration(
                                 hintText: 'Buscar eventos...',
                                 hintStyle: TextStyle(color: Color(0x80FFFFFF)),
                                 border: InputBorder.none,
@@ -246,7 +253,27 @@ class _HomeState extends State<Home> {
           );
         }
 
-        final events = snapshot.data!;
+        final allEvents = snapshot.data!;
+        
+        // Filtramos la lista basándonos en la barra de búsqueda
+        final events = _searchQuery.isEmpty 
+            ? allEvents 
+            : allEvents.where((event) {
+                final query = _searchQuery.toLowerCase();
+                final nameMatch = event.nombre.toLowerCase().contains(query);
+                final locationMatch = event.localizacion.toLowerCase().contains(query);
+                return nameMatch || locationMatch;
+              }).toList();
+
+        if (events.isEmpty) {
+          return Center(
+            child: Text(
+              'No se encontraron resultados para "$_searchQuery".',
+              style: const TextStyle(color: Colors.white54, fontSize: 16),
+              textAlign: TextAlign.center,
+            ),
+          );
+        }
 
         return RefreshIndicator(
           onRefresh: () async {
