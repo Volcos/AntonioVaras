@@ -9,7 +9,7 @@ const crearEventoSchema = {
       direccion: { type: 'string', minLength: 5, maxLength: 200 },
       imagen_url: { type: 'string', format: 'uri' },
       id_comuna: { type: 'integer', minimum: 1 },
-      id_tipo_evento: { type: 'integer', minimum: 1 }, // Agregado aquí
+      id_tipo_evento: { type: 'integer', minimum: 1 }, 
       latitud: { type: 'number', minimum: -90.0, maximum: 90.0 },
       longitud: { type: 'number', minimum: -180.0, maximum: 180.0 },
       organizador: { type: 'string', maxLength: 150 },
@@ -20,12 +20,10 @@ const crearEventoSchema = {
 };
 
 export default async function crearEvento(fastify, options) {
-  // 2. Se inyecta el esquema como opción en fastify.post
   fastify.post('/eventos', { schema: crearEventoSchema }, async (request, reply) => {
     try {
       const datos = request.body;
 
-      // 3. Ya no necesitas el 'if': Fastify ya validó campos requeridos y tipos
 
       const [eventoNuevo] = await fastify.sql`
         INSERT INTO evento (
@@ -61,7 +59,7 @@ export default async function crearEvento(fastify, options) {
     } catch (err) {
       fastify.log.error(err);
 
-      // Manejo específico si envían una comuna o tipo_evento inexistente
+      
       if (err.code === '23503') {
         reply.code(400);
         return {
