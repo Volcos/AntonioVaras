@@ -126,4 +126,60 @@ class LocationService {
       return null; // Si falla, regresamos null para usar el fallback
     }
   }
+  // Convierte un texto (ej: "Plaza Ñuñoa, Santiago") en Coordenadas (LatLng)
+  static Future<LatLng?> obtenerCoordenadasPorTexto(String direccion) async {
+    try {
+      if (direccion.isEmpty) return null;
+
+      final String normalized = direccion.trim().toLowerCase();
+
+      // Diccionario de lugares conocidos en Santiago
+      final Map<String, LatLng> venuesConocidos = {
+        'movistar arena': const LatLng(-33.4578, -70.6598),
+        'estadio nacional': const LatLng(-33.4651, -70.6127),
+        'estadio nacional julio martínez prádanos': const LatLng(-33.4651, -70.6127),
+        'teatro caupolicán': const LatLng(-33.4552, -70.6521),
+        'estadio monumental': const LatLng(-33.5078, -70.6105),
+        'hipódromo chile': const LatLng(-33.4131, -70.6653),
+        'parque o\'higgins': const LatLng(-33.4578, -70.6598),
+        'espacio riesco': const LatLng(-33.3744, -70.6289),
+        'centro cultural gam': const LatLng(-33.4437, -70.6443),
+        'gam': const LatLng(-33.4437, -70.6443),
+        'estadio bicentenario': const LatLng(-33.5283, -70.5975),
+        'estadio bicentenario de la florida': const LatLng(-33.5283, -70.5975),
+        'teatro teletón': const LatLng(-33.4489, -70.6655),
+        'blondie': const LatLng(-33.4512, -70.6611),
+        'arena santiago': const LatLng(-33.4578, -70.6598),
+      };
+
+      for (var entry in venuesConocidos.entries) {
+        if (normalized.contains(entry.key)) {
+          return entry.value;
+        }
+      }
+
+      // Usar la instancia de Geocoding() para invocar el metodo
+      try {
+        List<geo.Location> ubicaciones = await geo.Geocoding().locationFromAddress(direccion);
+        if (ubicaciones.isNotEmpty) {
+          geo.Location ubicacion = ubicaciones.first;
+          return LatLng(ubicacion.latitude, ubicacion.longitude);
+        }
+      } catch (_) {}
+
+      // Intentar agregando ", Santiago, Chile"
+      try {
+        List<geo.Location> ubicaciones = await geo.Geocoding().locationFromAddress('$direccion, Santiago, Chile');
+        if (ubicaciones.isNotEmpty) {
+          geo.Location ubicacion = ubicaciones.first;
+          return LatLng(ubicacion.latitude, ubicacion.longitude);
+        }
+      } catch (_) {}
+
+    } catch (e) {
+      print("No se encontraron coordenadas para: $direccion. Error: $e");
+    }
+    return null;
+  }
+
 }
