@@ -56,7 +56,7 @@ def extraer_lugar_desde_url(url):
             if parte.lower() in ['teatro', 'estadio', 'movistar', 'arena', 'club', 'centro', 'caupolican', 'fortin']:
                 return " ".join(partes[i:]).title()
     return None
-
+ 
 def extraer_detalle_estructurado(page, url):
     print(f"Procesando: {url}")
     try:
@@ -75,52 +75,110 @@ def extraer_detalle_estructurado(page, url):
             
         # 2. Imagen del Afiche
         imagen = None
-        img = page.query_selector("img[src*='ptocdn.net/images/eventos/']")
+
+        # Prioridad A: Clase específica del afiche (la más precisa en PuntoTicket)
+        img = page.query_selector("img.img_artist_thumb")
+
+        # Prioridad B: Buscar por sufijos típicos del afiche ('calugalistado' o 'caluga')
+        if not img:
+            img = page.query_selector("img[src*='calugalistado'], img[src*='caluga']")
+
+        # Prioridad C: Variantes de dominio de CDN descartando mapas/logos conocidos
+        if not img:
+            img = page.query_selector(
+                "img[src*='ptocdn.net/images/eventos/'], "
+                "img[src*='ptocdn.net/event-resources/images/']"
+            )
+
         if img:
             imagen = img.get_attribute("src")
 
-        # 3. Fecha y hora limpia
-        fecha_hora = None
-        elementos_fecha = page.query_selector_all(".date, .fecha, span[class*='date'], div[class*='date']")
-        for elem in elementos_fecha:
-            texto = elem.inner_text().strip()
-            # Evitar recapturar textos genéricos o secuencias numéricas de calendarios
-            if texto and not any(d in texto.lower() for d in DESCARTE) and "SELECCIONA" not in texto:
-                fecha_hora = texto
-                break
+        # Limpieza adicional: Si la URL es relativa o incluye parámetros de versión (?v=...)
+        if imagen:
+            imagen = imagen.strip()
 
+# 3. Fecha y hora
+        fecha_hora = None
+
+        # Prioridad A: Buscar etiquetas semánticas <time> (caso PuntoTicket moderno)
+        elementos_time = page.query_selector_all("time")
+        if elementos_time:
+            textos_time = [t.inner_text().strip() for t in elementos_time if t.inner_text().strip()]
+            if textos_time:
+                fecha_hora = " - ".join(textos_time)
+
+        # Prioridad B: Selectores de clase tradicionales
         if not fecha_hora:
-            bloques = page.query_selector_all("div, p, span")
+            elementos_fecha = page.query_selector_all(".date, .fecha, span[class*='date'], div[class*='date']")
+            for elem in elementos_fecha:
+                texto = elem.inner_text().strip()
+                if texto and not any(d in texto.lower() for d in DESCARTE) and "SELECCIONA" not in texto:
+                    fecha_hora = texto
+                    break
+
+        # Prioridad C: Búsqueda controlada por patrón regex
+        if not fecha_hora:
+            # Solo buscamos en elementos terminales para evitar capturar padres con datos mezclados
+            bloques = page.query_selector_all("p, span, li, b, strong")
             for b in bloques:
                 texto = b.inner_text().strip()
-                if re.search(r'(\d{1,2}\s+de\s+[a-z]+|\d{1,2}/\d{1,2}/\d{4}|\d{2}:\d{2}\s*hrs)', texto, re.I):
+                if re.search(r'(\d{1,2}\s+de\s+[a-z]+|\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{2}:\d{2}\s*hrs)', texto, re.I):
                     if len(texto) < 80 and not any(d in texto.lower() for d in DESCARTE):
                         fecha_hora = texto
                         break
 
-        # Limpieza adicional si captura secuencias con tabulaciones/números pegados
+        # Limpieza de fecha y hora
         if fecha_hora:
-            # Reemplaza saltos de línea y tabulaciones múltiples por espacios simples
             fecha_hora = re.sub(r'\s+', ' ', fecha_hora).strip()
-            # Remueve palabras de control como "SELECCIONA FUNCIÓN" al inicio
             fecha_hora = re.sub(r'^SELECCIONA FUNCIÓN\s*', '', fecha_hora, flags=re.I)
-            # Si el texto quedó con códigos basura de días (ej. n1 n2 n3), se limpia
             fecha_hora = re.sub(r'(\s*n\d+)+', '', fecha_hora)
+
 
         # 4. Lugar / Recinto
         lugar = None
-        elementos_lugar = page.query_selector_all(".venue, .recinto, .place, span[class*='place'], div[class*='place']")
-        for elem in elementos_lugar:
-            texto = elem.inner_text().strip()
-            if texto and len(texto) < 60 and not any(d in texto.lower() for d in DESCARTE):
-                lugar = texto
-                break
 
+        # Prioridad A: Enlace a Google Maps
+        map_link = page.query_selector("a[href*='maps.app.goo.gl'], a[href*='google.com/maps']")
+        if map_link:
+            texto_map = map_link.inner_text().strip()
+            if texto_map and len(texto_map) < 80:
+                lugar = texto_map
+
+        # Prioridad B: Etiqueta semántica <address>
+        if not lugar:
+            elem_address = page.query_selector("address")
+            if elem_address:
+                # Extraer únicamente el primer nodo de texto descartando etiquetas hijas como <time>
+                lugar_address = elem_address.evaluate("""(node) => {
+                    for (let child of node.childNodes) {
+                        if (child.nodeType === Node.TEXT_NODE && child.textContent.trim()) {
+                            return child.textContent.trim();
+                        }
+                    }
+                    // Respaldo: primera línea antes del primer salto de línea
+                    return node.innerText.split('\\n')[0].trim();
+                }""")
+                if lugar_address and len(lugar_address) < 80 and not any(d in lugar_address.lower() for d in DESCARTE):
+                    lugar = lugar_address
+
+        # Prioridad C: Selectores de clase tradicionales
+        if not lugar:
+            elementos_lugar = page.query_selector_all(".venue, .recinto, .place, span[class*='place'], div[class*='place']")
+            for elem in elementos_lugar:
+                texto = elem.inner_text().strip()
+                if texto and len(texto) < 60 and not any(d in texto.lower() for d in DESCARTE):
+                    lugar = texto
+                    break
+
+        # Prioridad D: Respaldo por URL
         if not lugar:
             lugar = extraer_lugar_desde_url(url)
 
+        # Limpieza final del lugar
         if lugar:
             lugar = re.sub(r'\s+', ' ', lugar).strip()
+
+
 
         # 5. Descripción limpia
         parrafos = page.query_selector_all("p, div.description p, div.event-detail p")
