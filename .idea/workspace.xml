@@ -4,7 +4,9 @@
     <option name="autoReloadType" value="NONE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f69f05bb-a385-445e-82d5-550931def469" name="Changes" comment="" />
+    <list default="true" id="f69f05bb-a385-445e-82d5-550931def469" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Frontend/Icono Panoramap.png" beforeDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
