@@ -88,9 +88,54 @@ export function extraerLugarDesdeUrl(url) {
     .map(parte => parte.charAt(0).toUpperCase() + parte.slice(1).toLowerCase())
     .join(' ');
 }
+
+
+/**
+ * FUNCIÓN PARA EXTRAER LONGITUD Y LATIDUD
+ */
+
+
+async function extraerCoordenadasGooGl(urlCorta) {
+  try {
+    // fetch sigue la redirección automáticamente por defecto
+    const respuesta = await fetch(urlCorta, {
+      headers: { 'User-Agent': 'Mozilla/5.0' }
+    });
+
+    // respuesta.url contiene la URL larga final después de redirigir
+    const urlLarga = respuesta.url;
+
+    // 1. Intentar formato !3d(lat)!4d(lng)
+    const matchPin = urlLarga.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
+    if (matchPin) {
+      return {
+        latitud: parseFloat(matchPin[1]),
+        longitud: parseFloat(matchPin[2])
+      };
+    }
+
+    // 2. Intentar formato @lat,lng o q=lat,lng
+    const matchAt = urlLarga.match(/[@q=](-?\d+\.\d+),(-?\d+\.\d+)/);
+    if (matchAt) {
+      return {
+        latitud: parseFloat(matchAt[1]),
+        longitud: parseFloat(matchAt[2])
+      };
+    }
+
+    return { latitud: null, longitud: null };
+  } catch (error) {
+    console.error('Error al resolver link corto de Maps:', error.message);
+    return { latitud: null, longitud: null };
+  }
+}
+
+
 /*
 EXTRAER EL DETALLE DE CADA EVENTO
 */
+
+
 export async function extraerDetalleEstructurado(page, url) {
   console.log(`Procesando: ${url}`);
 
@@ -197,7 +242,7 @@ export async function extraerDetalleEstructurado(page, url) {
 
 
     /**
-     * OBTENER UBICACIÓN
+     * OBTENER DIRECCION
      */
     let lugar = null;
     const mapLink = page
@@ -259,6 +304,12 @@ export async function extraerDetalleEstructurado(page, url) {
 
 
     /**
+     * OBTENER LONGITUD Y LATITUD
+     */
+
+
+    const coordenadas = await extraerCoordenadasGooGl(url);
+    /**
      * OBTENER DESCRIPCION
      */
 
@@ -284,21 +335,22 @@ export async function extraerDetalleEstructurado(page, url) {
      * OBTENER ID DEL EVENTO
      */
 
-// ejemplooo https://www.puntoticket.com/evento/facebrooklyn-teatro-caupolican-ene-2027"
+    const url_cortada = url.split('/evento/');
+    const id_evento = url_cortada[1];
 
     /*
-id_evento - 
-nombre - listo
-descripción - listo
-dirección - listo
-imagen_url - listo
-latitud -
-longitud -
-id_tipo_evento -
-organizador -
-url_pagina_compra -
-fechas {}***
-*/
+    id_evento - listo
+    nombre - listo
+    descripción - listo
+    dirección - listo
+    imagen_url - listo
+    latitud - 
+    longitud -
+    id_tipo_evento -
+    organizador -
+    url_pagina_compra -
+    fechas {}***
+    */
 
 
     return {
@@ -307,7 +359,10 @@ fechas {}***
       imagen,
       fecha_hora: fechaHora || null,
       lugar,
-      descripcion: textoDescripcion.slice(0, 5).join('\n')
+      descripcion: textoDescripcion.slice(0, 5).join('\n'),
+      id_evento,
+      longitud: coordenadas,
+      latitud: coordenadas.latitud,
     };
   } catch (error) {
     console.error(`Error procesando ${url}: ${error.message}`);
