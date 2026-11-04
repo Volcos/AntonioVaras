@@ -11,7 +11,7 @@ export const scraperWorker = new Worker(
     if (job.data.provider === 'ticketmaster') {
       console.log(`[Hijo - ${job.id}] Consultando API TM ID: ${job.data.id}`);
       const data = await obtenerDetalleEventoTM(job.data.id);
-      console.log(`[Hijo - ${job.id}] ¡Éxito! Extraído TM: ${data.title}`);
+      console.log(`[Hijo - ${job.id}] ¡Éxito! Extraído TM: ${data.nombre}`);
       return data;
     }
 

@@ -2,15 +2,43 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:capstone/views/Home.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  Future<void> hideNavigationBar() async {
+    await SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.manual,
+      overlays: const [SystemUiOverlay.top],
+    );
+  }
+
+  // Oculta la navegación inferior, pero conserva visible el status bar superior.
+  await hideNavigationBar();
+
+  // Android puede volver a mostrar la navegación después de un gesto.
+  await SystemChrome.setSystemUIChangeCallback(
+    (systemOverlaysAreVisible) async {
+      if (!systemOverlaysAreVisible) return;
+
+      await Future<void>.delayed(const Duration(seconds: 2));
+      await SystemChrome.restoreSystemUIOverlays();
+      await hideNavigationBar();
+    },
+  );
+
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
-    statusBarIconBrightness: Brightness.light, // Iconos de batería, hora, etc. en color blanco
+    statusBarIconBrightness: Brightness.light,
     systemNavigationBarColor: Colors.transparent,
-    systemNavigationBarIconBrightness: Brightness.light,
+    systemNavigationBarDividerColor: Colors.transparent,
+    systemNavigationBarIconBrightness: Brightness.dark,
   ));
+
   runApp(const MyApp());
+
+  // Android puede mostrar temporalmente la navegación durante el arranque.
+  // La ocultamos nuevamente después de que la interfaz termine de aparecer.
+  Future<void>.delayed(const Duration(seconds: 2), hideNavigationBar);
 }
 
 class MyApp extends StatelessWidget {

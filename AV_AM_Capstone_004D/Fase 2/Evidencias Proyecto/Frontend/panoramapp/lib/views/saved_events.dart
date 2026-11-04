@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:capstone/service/api_event.dart';
 import 'package:capstone/service/bookmark_manager.dart';
 import 'package:capstone/service/location_service.dart';
@@ -72,13 +73,18 @@ class SavedEventsView extends StatelessWidget {
             Positioned.fill(
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(35),
-                child: Image.network(
-                  event.imagen.isNotEmpty
+                child: CachedNetworkImage(
+                  imageUrl: event.imagen.isNotEmpty
                       ? event.imagen
                       : 'https://images.unsplash.com/photo-1549834125-82d3c48159a3?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
                   fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) =>
-                      const SizedBox.shrink(),
+                  memCacheWidth: 800,
+                  memCacheHeight: 640,
+                  maxWidthDiskCache: 800,
+                  maxHeightDiskCache: 640,
+                  placeholder: (context, url) =>
+                      const ColoredBox(color: Color(0xFF202020)),
+                  errorWidget: (context, url, error) => const SizedBox.shrink(),
                 ),
               ),
             ),

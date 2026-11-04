@@ -1,7 +1,6 @@
 // src/queues/scheduler.js
 import { Queue, Worker } from 'bullmq';
 import { redisConnection } from './connection.js';
-// Importamos el nuevo flujo de Ticketmaster
 import { dispararFlujoTicketmaster } from './ticketmasterFlow.js';
 
 const SCHEDULER_QUEUE_NAME = 'cron-trigger-queue';
@@ -14,8 +13,8 @@ export const schedulerWorker = new Worker(
   async (job) => {
     console.log(`\n [${new Date().toLocaleTimeString()}] Temporizador activado: Disparando flujo de Ticketmaster...`);
     
-    // Dispara el flujo para Chile (CL) limitando a 10 eventos por tanda
-    await dispararFlujoTicketmaster('CL', 10);
+    // Dispara el flujo 
+    await dispararFlujoTicketmaster('CL', 20);
   },
   { connection: redisConnection }
 );

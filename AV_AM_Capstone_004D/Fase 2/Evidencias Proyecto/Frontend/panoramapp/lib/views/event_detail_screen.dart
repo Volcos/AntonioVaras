@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:capstone/service/api_event.dart';
 import 'package:capstone/service/bookmark_manager.dart'; // <-- Traemos el manager
 import 'package:capstone/service/location_service.dart'; // <-- Location service para geocoding
@@ -47,12 +48,18 @@ class EventDetailScreen extends StatelessWidget {
               left: 0,
               right: 0,
               height: MediaQuery.of(context).size.height * 0.65,
-              child: Image.network(
-                event.imagen.isNotEmpty
+              child: CachedNetworkImage(
+                imageUrl: event.imagen.isNotEmpty
                     ? event.imagen
                     : 'https://images.unsplash.com/photo-1549834125-82d3c48159a3?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
                 fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => Container(
+                memCacheWidth: 1080,
+                memCacheHeight: 900,
+                maxWidthDiskCache: 1080,
+                maxHeightDiskCache: 900,
+                placeholder: (context, url) =>
+                    const ColoredBox(color: Color(0xFF202020)),
+                errorWidget: (context, url, error) => Container(
                   color: const Color(0xFF202020),
                   alignment: Alignment.center,
                   child: const Icon(
@@ -158,19 +165,30 @@ class EventDetailScreen extends StatelessWidget {
 
                         // Pill de la localización con geocoding dinámico
                         FutureBuilder<String?>(
-                          future: LocationService.obtenerDireccion(event.latitude, event.longitude),
+                          future: LocationService.obtenerDireccion(
+                            event.latitude,
+                            event.longitude,
+                          ),
                           builder: (context, snapshot) {
                             String displayLocation = event.localizacion;
-                            if (snapshot.connectionState == ConnectionState.waiting) {
-                              return _buildInfoPill(CupertinoIcons.location, 'Cargando ubicación...');
+                            if (snapshot.connectionState ==
+                                ConnectionState.waiting) {
+                              return _buildInfoPill(
+                                CupertinoIcons.location,
+                                'Cargando ubicación...',
+                              );
                             }
-                            if (snapshot.hasData && snapshot.data != null && snapshot.data!.isNotEmpty) {
+                            if (snapshot.hasData &&
+                                snapshot.data != null &&
+                                snapshot.data!.isNotEmpty) {
                               // Usar la dirección generada si existe, de lo contrario la predeterminada
                               displayLocation = snapshot.data!;
                             }
                             return _buildInfoPill(
                               CupertinoIcons.location,
-                              displayLocation.isEmpty ? 'Ubicación desconocida' : displayLocation,
+                              displayLocation.isEmpty
+                                  ? 'Ubicación desconocida'
+                                  : displayLocation,
                             );
                           },
                         ),

@@ -11,10 +11,12 @@ class TicketmasterService {
         'https://app.ticketmaster.com/discovery/v2/events.json?countryCode=CL&apikey=$_apiKey';
 
     try {
-      final rspta = await http.get(
-        Uri.parse(url),
-        headers: {'Accept': 'application/json'},
-      );
+      final rspta = await http
+          .get(
+            Uri.parse(url),
+            headers: {'Accept': 'application/json'},
+          )
+          .timeout(const Duration(seconds: 5));
 
       if (rspta.statusCode == 200) {
         final rsptaJson = jsonDecode(rspta.body);
@@ -54,8 +56,9 @@ class TicketmasterService {
 
     // 2. EXTRAER LOCALIZACIÓN (Venue / Estadio)
     String venueName = 'Lugar por confirmar';
-    String? lat;
-    String? lng;
+    String? lat = json['latitude']?.toString() ?? json['lat']?.toString();
+    String? lng = json['longitude']?.toString() ?? json['lng']?.toString() ?? json['lon']?.toString();
+
     if (json['_embedded'] != null &&
         json['_embedded']['venues'] != null &&
         json['_embedded']['venues'].isNotEmpty) {
@@ -64,10 +67,12 @@ class TicketmasterService {
         venue['name'],
         fallback: 'Lugar por confirmar',
       );
-      if (venue['location'] != null) {
-        lat = venue['location']['latitude']?.toString();
-        lng = venue['location']['longitude']?.toString();
+      if (venue['location'] != null && venue['location'] is Map) {
+        lat ??= venue['location']['latitude']?.toString() ?? venue['location']['lat']?.toString();
+        lng ??= venue['location']['longitude']?.toString() ?? venue['location']['lng']?.toString() ?? venue['location']['lon']?.toString();
       }
+      lat ??= venue['latitude']?.toString() ?? venue['lat']?.toString();
+      lng ??= venue['longitude']?.toString() ?? venue['lng']?.toString() ?? venue['lon']?.toString();
     }
 
     // 3. EXTRAER FECHAS Y HORAS

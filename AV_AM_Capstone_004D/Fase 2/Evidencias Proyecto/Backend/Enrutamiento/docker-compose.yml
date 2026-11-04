@@ -1,0 +1,12 @@
+services:
+  api:
+    build: .
+    container_name: backend_enrutamiento
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=development
+      - HOST=0.0.0.0
+    restart: unless-stopped
