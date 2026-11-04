@@ -37,9 +37,9 @@ dependencies:
   http: ^1.6.0
   url_launcher: ^6.3.3
   geocoding: ^5.0.0
-  maplibre_gl: ^0.27.1
-  permission_handler: ^12.0.3
-  cached_network_image: ^3.4.1
+  maplibre_gl: ^0.28.0
+  permission_handler: ^13.0.2
+  cached_network_image: ^4.0.6
   flutter_cache_manager: ^3.4.6
   image: ^4.12.0
   flutter_image_compress: ^2.5.1
