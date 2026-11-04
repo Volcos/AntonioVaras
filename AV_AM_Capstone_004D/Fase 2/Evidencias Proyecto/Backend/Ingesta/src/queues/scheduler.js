@@ -27,7 +27,7 @@ export async function iniciarProgramacion() {
   // upsertJobScheduler registra o actualiza el temporizador de forma idempotente
   await schedulerQueue.upsertJobScheduler(
     'ejecutar-ticketmaster-periodico', // Nuevo ID único para la programación
-    {
+    {//test
       every: 5 * 60 * 1000 // Frecuencia: Cada 5 minutos (ajusta según la cuota de tu API key)
       // Para usar Cron exacto: pattern: '0 8,14,20 * * *'
     },
