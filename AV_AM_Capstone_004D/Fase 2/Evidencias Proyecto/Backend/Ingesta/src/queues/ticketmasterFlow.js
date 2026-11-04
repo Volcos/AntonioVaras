@@ -5,7 +5,7 @@ import { buscarEventosTicketmaster } from '../APIs/ticketmaster.js';
 
 const flowProducer = new FlowProducer({ connection: redisConnection });
 
-export async function dispararFlujoTicketmaster(countryCode = 'CL', limite = 10) {
+export async function dispararFlujoTicketmaster(countryCode = 'CL', limite = '1') {
   console.log(`[TM Flow] Buscando catálogo en Ticketmaster (${countryCode})...`);
 
   const eventIds = await buscarEventosTicketmaster(countryCode, limite);
