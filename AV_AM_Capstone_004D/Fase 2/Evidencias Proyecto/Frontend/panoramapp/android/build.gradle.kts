@@ -23,13 +23,13 @@ subprojects {
 
     plugins.withId("com.android.application") {
         extensions.configure<ApplicationExtension> {
-            compileSdk = 36
+            compileSdk = 37
         }
     }
 
     plugins.withId("com.android.library") {
         extensions.configure<LibraryExtension> {
-            compileSdk = 36
+            compileSdk = 37
         }
     }
 }
