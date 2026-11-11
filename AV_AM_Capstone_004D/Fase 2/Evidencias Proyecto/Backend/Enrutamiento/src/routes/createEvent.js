@@ -34,7 +34,7 @@ export default async function crearEvento(fastify, options) {
           id_tipo_evento, 
           latitud, 
           longitud, 
-          organizador
+          organizador,
         ) VALUES (
           ${datos.nombre.trim()}, 
           ${datos.descripcion ? datos.descripcion.trim() : null}, 
