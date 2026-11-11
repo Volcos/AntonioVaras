@@ -1,14 +1,33 @@
 import { writeFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
+import { normalizarFechasPuntoTicket } from '../utils/dateNormalizer.js';
+import {
+  extraerCoordenadasGooGl,
+  extraerLugarDesdeUrl,
+  geocodificarPorLugar
+} from '../utils/geoUtils.js';
+
+export { normalizarFechasPuntoTicket } from '../utils/dateNormalizer.js';
+export { extraerLugarDesdeUrl } from '../utils/geoUtils.js';
 
 const URLS_SEMILLA = [
   'https://www.puntoticket.com/',
   'https://www.puntoticket.com/musica',
   'https://www.puntoticket.com/teatro',
-  'https://www.puntoticket.com/deportes'
+  'https://www.puntoticket.com/deportes',
+  'https://www.puntoticket.com/familia',
+  'https://www.puntoticket.com/especiales',
+  'https://www.puntoticket.com/todos'
 ];
+
+const MACRO_CATEGORIAS = new Map([
+  ['musica', 'Música'],
+  ['teatro', 'Teatro'],
+  ['deportes', 'Deportes'],
+  ['familia', 'Familia']
+]);
 
 const DESCARTE = [
   'precio total incluye cargo',
@@ -25,13 +44,88 @@ const DESCARTE = [
 const USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
+function quitarAcentos(texto) {
+  return texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+export function extraerComunaPuntoTicket(direccion) {
+  if (typeof direccion !== 'string' || !direccion.trim()) {
+    return null;
+  }
+
+  const partes = direccion
+    .split(/\s*[,–—-]\s*/)
+    .map(parte => parte.trim())
+    .filter(Boolean);
+  if (partes.length < 2) {
+    return null;
+  }
+
+  let comuna = partes[partes.length - 1].replace(/\s*,?\s*Chile$/i, '').trim();
+  const comunaSinAcentos = quitarAcentos(comuna).toLocaleLowerCase('es-CL');
+
+  const equivalencias = new Map([
+    ['santiago centro', 'Santiago'],
+    ['san carlos de apoquindo', 'Las Condes'],
+    ['san carlos de apoquind', 'Las Condes'],
+    ['san pedro de la paz', 'San Pedro de La Paz'],
+    ['padre las casas', 'Padre Las Casas']
+  ]);
+  const equivalencia = equivalencias.get(comunaSinAcentos);
+  if (equivalencia) {
+    return equivalencia;
+  }
+
+  const palabras = comuna
+    .toLocaleLowerCase('es-CL')
+    .replace(/(^|[\s'-])([a-záéíóúñ])/g, (_, separador, letra) =>
+      `${separador}${letra.toLocaleUpperCase('es-CL')}`
+    )
+    .split(/\s+/);
+  const conectores = new Set(['De', 'Del', 'La', 'Las', 'Los', 'Y']);
+  comuna = palabras
+    .map((palabra, indice) =>
+      indice > 0 && conectores.has(palabra)
+        ? palabra.toLocaleLowerCase('es-CL')
+        : palabra
+    )
+    .join(' ');
+
+  return comuna;
+}
+
+export function extraerEtiquetaCategoriaPuntoTicket(textoTarjeta) {
+  if (typeof textoTarjeta !== 'string') {
+    return null;
+  }
+
+  const textoNormalizado = textoTarjeta.replace(/\s+/g, ' ').trim();
+  const indiceSeparador = textoNormalizado.lastIndexOf('/');
+  if (indiceSeparador < 0) {
+    return null;
+  }
+
+  return textoNormalizado.slice(indiceSeparador + 1).trim() || null;
+}
+
+export function extraerIdExternoPuntoTicket(url, idTarjeta = null) {
+  if (typeof idTarjeta === 'string' && idTarjeta.trim()) {
+    return idTarjeta.trim();
+  }
+
+  const segmentos = new URL(url).pathname.split('/').filter(Boolean);
+  const indiceEvento = segmentos.findIndex(segmento => segmento.toLowerCase() === 'evento');
+  const identificador = indiceEvento >= 0 ? segmentos[indiceEvento + 1] : segmentos.at(-1);
+  return identificador ? decodeURIComponent(identificador) : null;
+}
+
 /*
 OBTENER LAS URLs
 */
 
 
 export async function obtenerUrlsEventos(page) {
-  const urlsEventos = new Set();
+  const eventosPorUrl = new Map();
   console.log('Buscando eventos en secciones principales...');
 
   for (const url of URLS_SEMILLA) {
@@ -39,104 +133,78 @@ export async function obtenerUrlsEventos(page) {
       await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 15000 });
       await page.waitForTimeout(1500);
 
-      const links = await page.locator("a[href*='/evento/']").evaluateAll(anchors =>
-        anchors.map(anchor => anchor.getAttribute('href')).filter(Boolean)
+      const links = await page.locator(
+        'article.event-item a[href], a[href*="/evento/"]'
+      ).evaluateAll(anchors =>
+        anchors.map(anchor => {
+          const articulo = anchor.closest('article.event-item');
+          const textoTarjeta = articulo
+            ?.querySelector('.evento--box .descripcion')
+            ?.innerText;
+          return {
+            href: anchor.getAttribute('href'),
+            idTarjeta: anchor.getAttribute('data-eventid') ||
+              articulo?.getAttribute('data-eventid') ||
+              null,
+            textoTarjeta: textoTarjeta || null
+          };
+        }).filter(link => link.href)
       );
 
-      for (const href of links) {
-        urlsEventos.add(new URL(href, 'https://www.puntoticket.com').href);
+      const macroCategoria = MACRO_CATEGORIAS.get(new URL(url).pathname.replace(/^\/|\/$/g, '').toLowerCase()) || null;
+      for (const link of links) {
+        const urlEvento = new URL(link.href, 'https://www.puntoticket.com').href;
+        const eventoExistente = eventosPorUrl.get(urlEvento) || {
+          id_externo: extraerIdExternoPuntoTicket(urlEvento, link.idTarjeta),
+          clasificaciones_fuente: []
+        };
+        const clasificacion = {
+          ...(macroCategoria ? { macro_categoria: macroCategoria } : {}),
+          etiqueta: extraerEtiquetaCategoriaPuntoTicket(link.textoTarjeta)
+        };
+        const clasificacionesCoincidentes = eventoExistente.clasificaciones_fuente.filter(
+          existente => existente.etiqueta === clasificacion.etiqueta
+        );
+        const yaExiste = clasificacion.macro_categoria
+          ? clasificacionesCoincidentes.some(
+              existente => existente.macro_categoria === clasificacion.macro_categoria
+            )
+          : clasificacionesCoincidentes.length > 0;
+        if (clasificacion.macro_categoria && clasificacionesCoincidentes.some(
+          existente => !existente.macro_categoria
+        )) {
+          eventoExistente.clasificaciones_fuente = eventoExistente.clasificaciones_fuente.filter(
+            existente =>
+              existente.etiqueta !== clasificacion.etiqueta || existente.macro_categoria
+          );
+        }
+        if (!yaExiste) {
+          eventoExistente.clasificaciones_fuente.push(clasificacion);
+        }
+        eventoExistente.id_externo ||= extraerIdExternoPuntoTicket(urlEvento, link.idTarjeta);
+        eventosPorUrl.set(urlEvento, eventoExistente);
       }
     } catch (error) {
       console.error(`Error al cargar ${url}: ${error.message}`);
     }
   }
 
-  return [...urlsEventos];
+  return [...eventosPorUrl].map(([url, evento]) => ({
+    url,
+    id_externo: evento.id_externo,
+    clasificaciones_fuente: evento.clasificaciones_fuente
+  }));
 }
-/*
-EXTRAER EL LUGAR DESDE LA URL
-*/
-export function extraerLugarDesdeUrl(url) {
-  const match = url.match(/\/evento\/([^/?#]+)/i);
-  if (!match) {
-    return null;
-  }
-
-  const slugLimpio = match[1].replace(
-    /-(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)-\d{4}$/i,
-    ''
-  );
-  const partes = slugLimpio.split('-');
-  const palabrasRecinto = new Set([
-    'teatro',
-    'estadio',
-    'movistar',
-    'arena',
-    'club',
-    'centro',
-    'caupolican',
-    'fortin'
-  ]);
-  const indiceRecinto = partes.findIndex(parte => palabrasRecinto.has(parte.toLowerCase()));
-
-  if (indiceRecinto === -1) {
-    return null;
-  }
-
-  return partes
-    .slice(indiceRecinto)
-    .map(parte => parte.charAt(0).toUpperCase() + parte.slice(1).toLowerCase())
-    .join(' ');
-}
-
-
-/**
- * FUNCIÓN PARA EXTRAER LONGITUD Y LATIDUD
- */
-
-
-async function extraerCoordenadasGooGl(urlCorta) {
-  try {
-    // fetch sigue la redirección automáticamente por defecto
-    const respuesta = await fetch(urlCorta, {
-      headers: { 'User-Agent': 'Mozilla/5.0' }
-    });
-
-    // respuesta.url contiene la URL larga final después de redirigir
-    const urlLarga = respuesta.url;
-
-    // 1. Intentar formato !3d(lat)!4d(lng)
-    const matchPin = urlLarga.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
-    if (matchPin) {
-      return {
-        latitud: parseFloat(matchPin[1]),
-        longitud: parseFloat(matchPin[2])
-      };
-    }
-
-    // 2. Intentar formato @lat,lng o q=lat,lng
-    const matchAt = urlLarga.match(/[@q=](-?\d+\.\d+),(-?\d+\.\d+)/);
-    if (matchAt) {
-      return {
-        latitud: parseFloat(matchAt[1]),
-        longitud: parseFloat(matchAt[2])
-      };
-    }
-
-    return { latitud: null, longitud: null };
-  } catch (error) {
-    console.error('Error al resolver link corto de Maps:', error.message);
-    return { latitud: null, longitud: null };
-  }
-}
-
-
 /*
 EXTRAER EL DETALLE DE CADA EVENTO
 */
 
 
-export async function extraerDetalleEstructurado(page, url) {
+export async function extraerDetalleEstructurado(page, url, opciones = {}) {
+  const {
+    clasificacionesFuente = [],
+    idExterno = null
+  } = opciones;
   console.log(`Procesando: ${url}`);
 
   try {
@@ -240,15 +308,21 @@ export async function extraerDetalleEstructurado(page, url) {
         .replace(/(\s*n\d+)+/g, '');
     }
 
+    const fechasNormalizadas = normalizarFechasPuntoTicket(fechaHora);
+
 
     /**
      * OBTENER DIRECCION
      */
     let lugar = null;
+    let urlMapa = null;
+
     const mapLink = page
       .locator("a[href*='maps.app.goo.gl'], a[href*='google.com/maps']")
       .first();
+
     if ((await mapLink.count()) > 0) {
+      urlMapa = await mapLink.getAttribute('href');
       const textoMap = (await mapLink.innerText()).trim();
       if (textoMap && textoMap.length < 80) {
         lugar = textoMap;
@@ -308,7 +382,15 @@ export async function extraerDetalleEstructurado(page, url) {
      */
 
 
-    const coordenadas = await extraerCoordenadasGooGl(url);
+    let coordenadas = urlMapa 
+      ? await extraerCoordenadasGooGl(urlMapa) 
+      : { latitud: null, longitud: null };
+
+
+    if ((!coordenadas.latitud || !coordenadas.longitud) && lugar) {
+      coordenadas = await geocodificarPorLugar(lugar);
+    }
+
     /**
      * OBTENER DESCRIPCION
      */
@@ -335,34 +417,63 @@ export async function extraerDetalleEstructurado(page, url) {
      * OBTENER ID DEL EVENTO
      */
 
-    const url_cortada = url.split('/evento/');
-    const id_evento = url_cortada[1];
+    const id_evento = extraerIdExternoPuntoTicket(url, idExterno);
 
+
+    /**
+     * OBTENER ORGANIZADOR
+     */
+
+    let organizador = null;
+
+    // Busca un span o texto que contenga "Produce:"
+    const elementosProduce = page.locator('span.heading, span, p, div').filter({
+      hasText: /Produce\s*:/i
+    });
+
+    // Recorre los candidatos desde el más específico (o buscamos la línea exacta)
+    for (let i = 0; i < (await elementosProduce.count()); i += 1) {
+      const texto = await elementosProduce.nth(i).innerText();
+
+      // Busca "Produce:" y captura SOLO lo que sigue en esa misma línea (máximo 80 caracteres)
+      const match = texto.match(/Produce\s*:\s*([^\n\r]{2,80})/i);
+
+      if (match && match[1]) {
+        organizador = match[1].trim();
+        break; // Apenas encuentra el nombre limpio, sale del bucle
+      }
+    }
     /*
     id_evento - listo
     nombre - listo
     descripción - listo
     dirección - listo
     imagen_url - listo
-    latitud - 
-    longitud -
-    id_tipo_evento -
-    organizador -
-    url_pagina_compra -
+    fecha_hora - listo
+    latitud - listo
+    longitud - listo
+    id_tipo_evento - 
+    organizador -  listo
+    url_pagina_compra - listo
     fechas {}***
     */
 
 
     return {
-      url,
-      titulo,
-      imagen,
-      fecha_hora: fechaHora || null,
-      lugar,
+      id_externo: id_evento,
+      clasificaciones_fuente: clasificacionesFuente,
+      nombre: titulo,
       descripcion: textoDescripcion.slice(0, 5).join('\n'),
-      id_evento,
-      longitud: coordenadas,
+      direccion: lugar,
+      comuna: extraerComunaPuntoTicket(lugar),
+      imagen_url: imagen,
+      fecha_hora: fechaHora || null,
+      fecha_inicio: fechasNormalizadas.fecha_inicio,
+      fecha_termino: fechasNormalizadas.fecha_termino,
+      longitud: coordenadas.longitud,
       latitud: coordenadas.latitud,
+      organizador: organizador,
+      url_pagina_compra: url
     };
   } catch (error) {
     console.error(`Error procesando ${url}: ${error.message}`);
@@ -370,27 +481,38 @@ export async function extraerDetalleEstructurado(page, url) {
   }
 }
 
-export async function ejecutarScraperPuntoTicket() {
+export async function ejecutarScraperPuntoTicket({ guardarArchivo = true } = {}) {
   const browser = await chromium.launch({ headless: true });
 
   try {
     const context = await browser.newContext({ userAgent: USER_AGENT });
     const page = await context.newPage();
-    const urls = await obtenerUrlsEventos(page);
-    console.log(`\nTotal de eventos encontrados: ${urls.length}`);
+    const eventosListado = await obtenerUrlsEventos(page);
+    console.log(`\nTotal de eventos encontrados: ${eventosListado.length}`);
 
     const resultados = [];
-    for (const url of urls) {
-      const datos = await extraerDetalleEstructurado(page, url);
+    for (const eventoListado of eventosListado) {
+      const datos = await extraerDetalleEstructurado(
+        page,
+        eventoListado.url,
+        {
+          clasificacionesFuente: eventoListado.clasificaciones_fuente,
+          idExterno: eventoListado.id_externo
+        }
+      );
       if (datos) {
         resultados.push(datos);
       }
       await page.waitForTimeout(1000);
     }
 
-    const archivoSalida = resolve(process.cwd(), 'eventos_puntoticket_perfecto.json');
-    await writeFile(archivoSalida, `${JSON.stringify(resultados, null, 4)}\n`, 'utf8');
-    console.log(`\nProceso completado. Revisa ${archivoSalida}.`);
+    if (guardarArchivo) {
+      const directorioScraper = dirname(fileURLToPath(import.meta.url));
+      const archivoSalida = resolve(directorioScraper, '../../eventos_puntoticket_perfecto.json');
+      await writeFile(archivoSalida, `${JSON.stringify(resultados, null, 4)}\n`, 'utf8');
+      console.log(`\nProceso completado. Revisa ${archivoSalida}.`);
+    }
+
     return resultados;
   } finally {
     await browser.close();
@@ -403,5 +525,3 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     process.exitCode = 1;
   });
 }
-
-

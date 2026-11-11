@@ -12,8 +12,7 @@ const crearEventoSchema = {
       id_tipo_evento: { type: 'integer', minimum: 1 }, 
       latitud: { type: 'number', minimum: -90.0, maximum: 90.0 },
       longitud: { type: 'number', minimum: -180.0, maximum: 180.0 },
-      organizador: { type: 'string', maxLength: 150 },
-      fuente_informacion: { type: 'string', maxLength: 255 }
+      organizador: { type: 'string', maxLength: 150 }
     },
     additionalProperties: false
   }
@@ -35,8 +34,7 @@ export default async function crearEvento(fastify, options) {
           id_tipo_evento, 
           latitud, 
           longitud, 
-          organizador, 
-          fuente_informacion
+          organizador
         ) VALUES (
           ${datos.nombre.trim()}, 
           ${datos.descripcion ? datos.descripcion.trim() : null}, 
@@ -44,10 +42,9 @@ export default async function crearEvento(fastify, options) {
           ${datos.imagen_url || null}, 
           ${datos.id_comuna}, 
           ${datos.id_tipo_evento}, 
-          ${datos.latitud || null}, 
-          ${datos.longitud || null}, 
-          ${datos.organizador ? datos.organizador.trim() : null},
-          ${datos.fuente_informacion || null}
+          ${datos.latitud ?? null}, 
+          ${datos.longitud ?? null}, 
+          ${datos.organizador ? datos.organizador.trim() : null}
         ) RETURNING *;
       `;
 
