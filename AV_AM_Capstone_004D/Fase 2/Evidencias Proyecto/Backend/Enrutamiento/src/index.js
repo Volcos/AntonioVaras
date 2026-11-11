@@ -5,6 +5,7 @@ import dbConnector from "./plugins/db.js"
 import eventos from './routes/getAllEvents.js';
 import crearEvento from './routes/createEvent.js'
 import crearUsuario from './routes/createUser.js'
+import logUser from './routes/logUser.js'
 
 const app = Fastify({
     logger: true
@@ -20,6 +21,8 @@ const start = async() => {
         await app.register(crearEvento);
         
         await app.register(crearUsuario);
+
+        await app.register(logUser);    
 
         const PORT = process.env.PORT || 3000;
         await app.listen({ port: PORT, host: '0.0.0.0' });

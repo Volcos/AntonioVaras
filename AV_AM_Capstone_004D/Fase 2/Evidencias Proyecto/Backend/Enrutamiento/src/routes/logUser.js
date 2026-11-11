@@ -17,7 +17,7 @@ export default async function logUser(fastify, options) {
             
             const [usuario] = await fastify.sql`
                 SELECT * FROM usuario
-                WHERE nombre = ${nombre.trim()} AND contrasena = ${contrasena.trim()};
+                WHERE nombre_usuario = ${nombre.trim()} AND contrasena = ${contrasena.trim()};
             `;
 
             if (!usuario) {
