@@ -4,18 +4,7 @@
     <option name="autoReloadType" value="NONE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f69f05bb-a385-445e-82d5-550931def469" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Backend/Enrutamiento/src/App/createEvent.js" beforeDir="false" afterPath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Backend/Enrutamiento/src/App/createEvent.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Backend/Enrutamiento/src/App/getAllEvents.js" beforeDir="false" afterPath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Backend/Enrutamiento/src/App/getAllEvents.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Backend/Enrutamiento/src/index.js" beforeDir="false" afterPath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Backend/Enrutamiento/src/index.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Frontend/panoramapp/.idea/caches/deviceStreaming.xml" beforeDir="false" afterPath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Frontend/panoramapp/.idea/caches/deviceStreaming.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Frontend/panoramapp/lib/service/location_service.dart" beforeDir="false" afterPath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Frontend/panoramapp/lib/service/location_service.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Frontend/panoramapp/lib/service/web_service.dart" beforeDir="false" afterPath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Frontend/panoramapp/lib/service/web_service.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Frontend/panoramapp/lib/views/Home.dart" beforeDir="false" afterPath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Frontend/panoramapp/lib/views/Home.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Frontend/panoramapp/lib/views/event_detail_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Frontend/panoramapp/lib/views/event_detail_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Frontend/panoramapp/lib/views/map.dart" beforeDir="false" afterPath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Frontend/panoramapp/lib/views/map.dart" afterDir="false" />
-    </list>
+    <list default="true" id="f69f05bb-a385-445e-82d5-550931def469" name="Changes" comment="" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
