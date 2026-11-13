@@ -1,4 +1,6 @@
-const { crearUsuarioSchema } = {
+import { hashPassword } from './passwordUtils.js';
+
+const crearUsuarioSchema = {
     body: {
         type: 'object',
         required: ['nombre', 'rut', 'email', 'contrasena', 'tipo_usuario'],
@@ -13,28 +15,63 @@ const { crearUsuarioSchema } = {
     }
 };
 
-export default async function crearUsuario(fastify, options) {
+export default async function crearUsuario(fastify) {
   fastify.post('/usuarios', { schema: crearUsuarioSchema }, async (request, reply) => {
     try {
       const datos = request.body;
+      const tiposUsuario = await fastify.sql`
+        SELECT id_tipo_usuario, nombre_tipo_usuario
+        FROM tipo_usuario
+        WHERE LOWER(BTRIM(nombre_tipo_usuario)) = LOWER(BTRIM(${datos.tipo_usuario.trim()}));
+      `;
+
+      if (tiposUsuario.length === 0) {
+        return reply.code(400).send({
+          success: false,
+          message: 'El tipo de usuario proporcionado no existe.'
+        });
+      }
+
+      if (tiposUsuario.length > 1) {
+        fastify.log.error(
+          { tipo_usuario: datos.tipo_usuario },
+          'Tipo de usuario duplicado al crear cuenta'
+        );
+        return reply.code(500).send({
+          success: false,
+          message: 'No se pudo resolver el tipo de usuario.'
+        });
+      }
+
+      const contrasenaHash = await hashPassword(datos.contrasena);
 
       const [usuarioNuevo] = await fastify.sql`
         INSERT INTO usuario (
-          $1, $2, $3, $4, $5
+          nombre_usuario,
+          rut,
+          email,
+          contrasena,
+          id_tipo_usuario
         ) VALUES (
-          ${datos.nombre.trim()}, 
-          ${datos.rut.trim()}, 
-          ${datos.email.trim()}, 
-          ${datos.contrasena.trim()}, 
-          ${datos.tipo_usuario}
+          ${datos.nombre.trim()},
+          ${datos.rut.trim()},
+          ${datos.email.trim()},
+          ${contrasenaHash},
+          ${tiposUsuario[0].id_tipo_usuario}
         ) RETURNING *;
       `;
 
-      reply.code(201);
-      return {
+      if (!usuarioNuevo) {
+        throw new Error('La inserción del usuario no devolvió el registro creado.');
+      }
+
+      const usuarioPublico = { ...usuarioNuevo };
+      delete usuarioPublico.contrasena;
+
+      return reply.code(201).send({
         success: true,
-        data: usuarioNuevo
-      };    
+        data: usuarioPublico
+      });
     } catch (err) {
         fastify.log.error(err);
 
