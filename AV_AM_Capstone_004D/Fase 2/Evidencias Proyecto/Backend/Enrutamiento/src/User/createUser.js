@@ -9,7 +9,7 @@ const crearUsuarioSchema = {
             rut: { type: 'string', minLength: 9, maxLength: 10 },
             email: { type: 'string', format: 'email' },
             contrasena: { type: 'string', minLength: 6, maxLength: 100 },
-            tipo_usuario: { type: 'string', enum: ['organizador', 'participante'] }
+            tipo_usuario: { type: 'string', enum: ['Administrador', 'Cliente'] }
         },
         additionalProperties: false
     }
