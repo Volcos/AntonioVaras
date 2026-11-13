@@ -5,6 +5,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:capstone/service/api_event.dart';
 import 'package:capstone/service/bookmark_manager.dart'; // <-- Traemos el manager
 import 'package:capstone/service/location_service.dart'; // <-- Location service para geocoding
+import 'package:capstone/views/map.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:flutter/services.dart';
@@ -184,11 +185,14 @@ class EventDetailScreen extends StatelessWidget {
                               // Usar la dirección generada si existe, de lo contrario la predeterminada
                               displayLocation = snapshot.data!;
                             }
-                            return _buildInfoPill(
-                              CupertinoIcons.location,
-                              displayLocation.isEmpty
-                                  ? 'Ubicación desconocida'
-                                  : displayLocation,
+                            return GestureDetector(
+                              onTap: () => _openEventMap(context),
+                              child: _buildInfoPill(
+                                CupertinoIcons.location,
+                                displayLocation.isEmpty
+                                    ? 'Ubicación desconocida'
+                                    : displayLocation,
+                              ),
                             );
                           },
                         ),
@@ -295,6 +299,13 @@ class EventDetailScreen extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  void _openEventMap(BuildContext context) {
+    Navigator.push(
+      context,
+      CupertinoPageRoute(builder: (_) => MapView(selectedEvent: event)),
     );
   }
 

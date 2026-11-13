@@ -4,6 +4,7 @@ import 'apibenja_service.dart';
 
 class Webservice {
   static Future<List<ApiEvent>>? _eventsRequest;
+  static List<ApiEvent>? _cachedEvents;
 
   // Este servicio actúa como "Orquestador".
   static Future<List<ApiEvent>> getEvents({bool forceRefresh = false}) {
@@ -11,10 +12,24 @@ class Webservice {
     if (!forceRefresh && cachedRequest != null) {
       return cachedRequest;
     }
+    if (!forceRefresh && _cachedEvents != null) {
+      return Future.value(_cachedEvents!);
+    }
 
-    final request = _loadEvents();
+    final request = _loadEventsWithCache();
     _eventsRequest = request;
     return request;
+  }
+
+  static Future<List<ApiEvent>> _loadEventsWithCache() async {
+    try {
+      final events = await _loadEvents();
+      _cachedEvents = events;
+      return events;
+    } catch (_) {
+      _eventsRequest = null;
+      rethrow;
+    }
   }
 
   static Future<List<ApiEvent>> _loadEvents() async {

@@ -29,7 +29,10 @@ export default async function eventos(fastify, options) {
             e.latitud AS latitude,
             e.longitud AS longitude,
             e.imagen_url AS imagen,
-            STRING_AGG(DISTINCT f.nombre_fuente, ', ') AS fuente_info,
+            COALESCE(
+                STRING_AGG(DISTINCT ef.url_compra, ', '),
+                STRING_AGG(DISTINCT f.nombre_fuente, ', ')
+            ) AS fuente_info,
             COALESCE(e.organizador, '') AS organizador,
             ROUND(
                 (ST_Distance(
@@ -80,7 +83,10 @@ export default async function eventos(fastify, options) {
             e.latitud AS latitude,
             e.longitud AS longitude,
             e.imagen_url AS imagen,
-            STRING_AGG(DISTINCT f.nombre_fuente, ', ') AS fuente_info,
+            COALESCE(
+                STRING_AGG(DISTINCT ef.url_compra, ', '),
+                STRING_AGG(DISTINCT f.nombre_fuente, ', ')
+            ) AS fuente_info,
             COALESCE(e.organizador, '') AS organizador
         FROM evento e
         JOIN comuna c ON e.id_comuna = c.id_comuna

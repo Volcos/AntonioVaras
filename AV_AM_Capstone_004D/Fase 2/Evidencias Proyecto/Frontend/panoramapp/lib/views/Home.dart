@@ -1,4 +1,5 @@
 import 'dart:ui';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
@@ -10,6 +11,7 @@ import 'package:capstone/service/location_service.dart';
 import 'package:capstone/views/event_detail_screen.dart';
 import 'package:capstone/views/saved_events.dart'; // Importamos la nueva vista de guardados
 import 'package:capstone/views/map.dart'; // Importamos la vista del mapa
+import 'package:capstone/views/create_event.dart';
 
 class Home extends StatefulWidget {
   const Home({super.key});
@@ -23,10 +25,12 @@ class _HomeState extends State<Home> {
   Future<List<ApiEvent>>? _eventsFuture;
   bool _mapInitialized = false;
   String _searchQuery = ''; // <-- Nueva variable para el estado del buscador
+  Timer? _searchDebounce;
 
   @override
   void dispose() {
     _currentIndex.dispose();
+    _searchDebounce?.cancel();
     super.dispose();
   }
 
@@ -58,7 +62,7 @@ class _HomeState extends State<Home> {
                         ? const MapView()
                         : _buildPlaceholder('Explorar'),
                     const SavedEventsView(),
-                    _buildPlaceholder('Ajustes'),
+                    const CreateEventView(),
                   ],
                 ),
 
@@ -131,10 +135,14 @@ class _HomeState extends State<Home> {
                             child: TextField(
                               style: const TextStyle(color: Colors.white),
                               onChanged: (value) {
-                                // Actualizamos la variable y refrescamos la vista
-                                setState(() {
-                                  _searchQuery = value;
-                                });
+                                _searchDebounce?.cancel();
+                                _searchDebounce = Timer(
+                                  const Duration(milliseconds: 180),
+                                  () {
+                                    if (!mounted) return;
+                                    setState(() => _searchQuery = value.trim());
+                                  },
+                                );
                               },
                               decoration: const InputDecoration(
                                 hintText: 'Buscar eventos...',
@@ -174,7 +182,7 @@ class _HomeState extends State<Home> {
                       NavItem(CupertinoIcons.home, 'Inicio'),
                       NavItem(CupertinoIcons.map, 'Explorar'),
                       NavItem(CupertinoIcons.bookmark, 'Guardados'),
-                      NavItem(CupertinoIcons.gear, 'Ajustes'),
+                      NavItem(CupertinoIcons.add_circled, 'Crear'),
                     ],
                   ),
                 ),
@@ -254,14 +262,16 @@ class _HomeState extends State<Home> {
         }
 
         final allEvents = snapshot.data!;
-        
+
         // Filtramos la lista basándonos en la barra de búsqueda
-        final events = _searchQuery.isEmpty 
-            ? allEvents 
+        final events = _searchQuery.isEmpty
+            ? allEvents
             : allEvents.where((event) {
                 final query = _searchQuery.toLowerCase();
                 final nameMatch = event.nombre.toLowerCase().contains(query);
-                final locationMatch = event.localizacion.toLowerCase().contains(query);
+                final locationMatch = event.localizacion.toLowerCase().contains(
+                  query,
+                );
                 return nameMatch || locationMatch;
               }).toList();
 

@@ -31,6 +31,12 @@ const crearEventoSchema = {
           { type: 'null' }
         ]
       },
+      url_pagina_compra: {
+        anyOf: [
+          { type: 'string', format: 'uri', maxLength: 300 },
+          { type: 'null' }
+        ]
+      },
       comuna: { type: 'string', minLength: 1, maxLength: 100 },
       tipo_evento: { type: 'string', minLength: 1, maxLength: 100 },
       fechas: {
@@ -175,6 +181,35 @@ export default async function crearEvento(fastify) {
 
       if (!eventoNuevo) {
         throw new Error('La inserción del evento no devolvió el registro creado.');
+      }
+
+      if (datos.url_pagina_compra) {
+        await fastify.sql`
+          WITH fuente_manual AS (
+            INSERT INTO fuente (nombre_fuente)
+            SELECT 'PanoramAPP'
+            WHERE NOT EXISTS (
+              SELECT 1 FROM fuente
+              WHERE LOWER(nombre_fuente) = LOWER('PanoramAPP')
+            )
+            RETURNING id_fuente
+          ),
+          fuente_resuelta AS (
+            SELECT id_fuente FROM fuente_manual
+            UNION ALL
+            SELECT id_fuente FROM fuente
+            WHERE LOWER(nombre_fuente) = LOWER('PanoramAPP')
+              AND NOT EXISTS (SELECT 1 FROM fuente_manual)
+            LIMIT 1
+          )
+          INSERT INTO evento_fuente (id_evento, id_fuente, id_externo, url_compra)
+          SELECT
+            ${eventoNuevo.id_evento},
+            id_fuente,
+            ${`manual-${eventoNuevo.id_evento}`},
+            ${datos.url_pagina_compra.trim()}
+          FROM fuente_resuelta;
+        `;
       }
 
       return reply.code(201).send({
