@@ -5,7 +5,7 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node --test src/App/createEvent.test.js src/User/passwordAuth.test.js src/User/getUserById.test.js src/User/deleteUser.test.js",
     "start": "node Enrutamiento/src/index.js"
   },
   "keywords": [],

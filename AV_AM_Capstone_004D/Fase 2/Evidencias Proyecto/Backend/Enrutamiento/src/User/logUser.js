@@ -1,3 +1,5 @@
+import { verifyPassword } from './passwordUtils.js';
+
 const logUserSchema = {
     body: {
         type: 'object',
@@ -10,29 +12,30 @@ const logUserSchema = {
     }
 };
 
-export default async function logUser(fastify, options) {
+export default async function logUser(fastify) {
     fastify.post('/login', { schema: logUserSchema }, async (request, reply) => {
         try {
             const { nombre, contrasena } = request.body;   
             
             const [usuario] = await fastify.sql`
                 SELECT * FROM usuario
-                WHERE nombre_usuario = ${nombre.trim()} AND contrasena = ${contrasena.trim()};
+                WHERE nombre_usuario = ${nombre.trim()};
             `;
 
-            if (!usuario) {
-                reply.code(401);
-                return {
+            if (!usuario || !await verifyPassword(contrasena, usuario.contrasena)) {
+                return reply.code(401).send({
                     success: false,
                     message: 'Nombre de usuario o contraseña incorrectos.'
-                };
+                });
             }
 
-            reply.code(200);
-            return {
+            const usuarioPublico = { ...usuario };
+            delete usuarioPublico.contrasena;
+
+            return reply.code(200).send({
                 success: true,
-                data: usuario
-            };
+                data: usuarioPublico
+            });
         } catch (err) {
             fastify.log.error(err);
             reply.code(500);

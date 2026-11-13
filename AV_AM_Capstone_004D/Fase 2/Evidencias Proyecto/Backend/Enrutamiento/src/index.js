@@ -1,11 +1,13 @@
 import 'dotenv/config';
 import Fastify from "fastify";
-import statusDB from "./routes/status.js";
+import statusDB from "./App/status.js";
 import dbConnector from "./plugins/db.js"
-import eventos from './routes/getAllEvents.js';
-import crearEvento from './routes/createEvent.js'
-import crearUsuario from './routes/createUser.js'
-import logUser from './routes/logUser.js'
+import eventos from './App/getAllEvents.js';
+import crearEvento from './App/createEvent.js'
+import crearUsuario from './User/createUser.js'
+import eliminarUsuario from './User/deleteUser.js'
+import obtenerUsuarioPorId from './User/getUserById.js'
+import logUser from './User/logUser.js'
 
 const app = Fastify({
     logger: true
@@ -21,6 +23,8 @@ const start = async() => {
         await app.register(crearEvento);
         
         await app.register(crearUsuario);
+        await app.register(eliminarUsuario);
+        await app.register(obtenerUsuarioPorId);
 
         await app.register(logUser);    
 
