@@ -12,6 +12,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@fastify/multipart": "^10.1.8",
+    "@google-cloud/storage": "^9.0.0",
     "@neondatabase/serverless": "^1.2.0",
     "cors": "^2.8.6",
     "dotenv": "^18.0.5",
