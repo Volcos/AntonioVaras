@@ -5,13 +5,14 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "test": "node --test src/App/createEvent.test.js src/User/passwordAuth.test.js src/User/getUserById.test.js src/User/deleteUser.test.js",
+    "test": "node --test src/App/createEvent.test.js src/User/passwordAuth.test.js src/User/getUserById.test.js src/User/deleteUser.test.js src/routes/notificaciones.test.js",
     "start": "node Enrutamiento/src/index.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@fastify/jwt": "^10.2.8",
     "@fastify/multipart": "^10.1.8",
     "@google-cloud/storage": "^9.0.0",
     "@neondatabase/serverless": "^1.2.0",
@@ -19,6 +20,7 @@
     "dotenv": "^18.0.5",
     "env": "^0.0.2",
     "fastify": "^5.12.5",
-    "fastify-plugin": "^6.0.0"
+    "fastify-plugin": "^6.0.0",
+    "firebase-admin": "^14.5.1"
   }
 }

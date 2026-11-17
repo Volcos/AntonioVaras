@@ -31,9 +31,14 @@ export default async function logUser(fastify) {
 
             const usuarioPublico = { ...usuario };
             delete usuarioPublico.contrasena;
+            const token = fastify.jwt.sign({
+                id_usuario: usuario.id_usuario,
+                nombre_usuario: usuario.nombre_usuario
+            });
 
             return reply.code(200).send({
                 success: true,
+                token,
                 data: usuarioPublico
             });
         } catch (err) {
@@ -44,5 +49,14 @@ export default async function logUser(fastify) {
                 message: 'Error al procesar la solicitud de inicio de sesión.'
             };
         }
+    });
+
+    fastify.get('/me', {
+        onRequest: [fastify.authenticate]
+    }, async (request, reply) => {
+        return reply.code(200).send({
+            success: true,
+            data: request.user
+        });
     });
 }

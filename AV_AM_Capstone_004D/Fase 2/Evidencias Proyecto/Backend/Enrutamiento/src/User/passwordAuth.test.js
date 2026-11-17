@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import Fastify from 'fastify';
+import fastifyJwt from '@fastify/jwt';
 import { test } from 'node:test';
 import crearUsuario from './createUser.js';
 import logUser from './logUser.js';
@@ -110,6 +111,17 @@ test('autentica contra el hash y no devuelve el hash al usuario', async () => {
     contrasena: storedPassword,
     tipo_usuario: datosUsuario.tipo_usuario
   }]);
+  await app.register(fastifyJwt, { secret: 'test-secret' });
+  app.decorate('authenticate', async function (request, reply) {
+    try {
+      await request.jwtVerify();
+    } catch (err) {
+      return reply.code(401).send({
+        success: false,
+        message: 'Sesión inválida o expirada. Inicia sesión nuevamente.'
+      });
+    }
+  });
   await app.register(logUser);
 
   try {
@@ -131,8 +143,31 @@ test('autentica contra el hash y no devuelve el hash al usuario', async () => {
     });
 
     assert.equal(responseCorrecta.statusCode, 200);
+    assert.equal(responseCorrecta.json().success, true);
+    assert.ok(responseCorrecta.json().token);
     assert.equal('contrasena' in responseCorrecta.json().data, false);
     assert.equal(responseIncorrecta.statusCode, 401);
+
+    const responseMe = await app.inject({
+      method: 'GET',
+      url: '/me',
+      headers: {
+        authorization: `Bearer ${responseCorrecta.json().token}`
+      }
+    });
+    const responseMeSinToken = await app.inject({
+      method: 'GET',
+      url: '/me'
+    });
+
+    assert.equal(responseMe.statusCode, 200);
+    assert.deepEqual(responseMe.json().data.id_usuario, 1);
+    assert.equal(responseMe.json().data.nombre_usuario, datosUsuario.nombre);
+    assert.equal(responseMeSinToken.statusCode, 401);
+    assert.deepEqual(responseMeSinToken.json(), {
+      success: false,
+      message: 'Sesión inválida o expirada. Inicia sesión nuevamente.'
+    });
   } finally {
     await app.close();
   }
