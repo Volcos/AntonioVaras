@@ -5,7 +5,7 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "test": "node --test src/App/createEvent.test.js src/User/passwordAuth.test.js src/User/getUserById.test.js src/User/deleteUser.test.js src/routes/notificaciones.test.js",
+    "test": "node --test src/App/createEvent.test.js src/App/deleteEvent.test.js src/User/passwordAuth.test.js src/User/getUserById.test.js src/User/deleteUser.test.js src/routes/notificaciones.test.js",
     "start": "node Enrutamiento/src/index.js"
   },
   "keywords": [],
@@ -14,6 +14,7 @@
   "dependencies": {
     "@fastify/jwt": "^10.2.8",
     "@fastify/multipart": "^10.1.8",
+    "@fastify/rate-limit": "^11.2.2",
     "@google-cloud/storage": "^9.0.0",
     "@neondatabase/serverless": "^1.2.0",
     "cors": "^2.8.6",

@@ -1,10 +1,12 @@
 import 'dotenv/config';
 import Fastify from "fastify";
 import fastifyJwt from '@fastify/jwt';
+import fastifyRateLimit from '@fastify/rate-limit';
 import statusDB from "./App/status.js";
 import dbConnector from "./plugins/db.js"
 import eventos from './App/getAllEvents.js';
 import crearEvento from './App/createEvent.js';
+import eliminarEvento from './App/deleteEvent.js';
 import tiposEvento from './App/getEventTypes.js';
 import crearUsuario from './User/createUser.js';
 import eliminarUsuario from './User/deleteUser.js';
@@ -15,11 +17,21 @@ import uploadRoutes from './App/upload.js';
 import fastifyMultipart from '@fastify/multipart';
 
 const app = Fastify({
-    logger: true
+    logger: true,
+    trustProxy: true
 })
 
 const start = async() => {
     try {
+        await app.register(fastifyRateLimit, {
+            max: 100,
+            timeWindow: '1 minute',
+            errorResponseBuilder: () => ({
+                statusCode: 429,
+                success: false,
+                message: 'Demasiadas solicitudes. Por favor, intenta nuevamente en un minuto.'
+            })
+        });
         await app.register(fastifyJwt, {
             secret: process.env.JWT_SECRET,
             sign: { expiresIn: '7d' }
@@ -41,6 +53,7 @@ const start = async() => {
         await app.register(eventos);
         // ej: /eventos/cercanos?lat=-33.43&lng=-70.65
         await app.register(crearEvento);
+        await app.register(eliminarEvento);
         await app.register(tiposEvento);
         await app.register(fastifyMultipart, {
             limits: {
