@@ -9,14 +9,22 @@ const crearUsuarioSchema = {
             rut: { type: 'string', minLength: 9, maxLength: 10 },
             email: { type: 'string', format: 'email' },
             contrasena: { type: 'string', minLength: 6, maxLength: 100 },
-            tipo_usuario: { type: 'string', enum: ['Administrador', 'Cliente'] }
+            tipo_usuario: { type: 'string', enum: ['Administrador', 'Cliente','Organizador'] }
         },
         additionalProperties: false
     }
 };
 
 export default async function crearUsuario(fastify) {
-  fastify.post('/usuarios', { schema: crearUsuarioSchema }, async (request, reply) => {
+  fastify.post('/usuarios', {
+    schema: crearUsuarioSchema,
+    config: {
+      rateLimit: {
+        max: 5,
+        timeWindow: '1 minute'
+      }
+    }
+  }, async (request, reply) => {
     try {
       const datos = request.body;
       const tiposUsuario = await fastify.sql`

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import Fastify from 'fastify';
 import fastifyJwt from '@fastify/jwt';
+import fastifyRateLimit from '@fastify/rate-limit';
 import { test } from 'node:test';
 import crearUsuario from './createUser.js';
 import logUser from './logUser.js';
@@ -11,7 +12,7 @@ const datosUsuario = {
   rut: '12345678-9',
   email: 'ana@example.com',
   contrasena: 'clave segura',
-  tipo_usuario: 'participante'
+  tipo_usuario: 'Cliente'
 };
 
 test('almacena un hash y no devuelve la contraseña al crear el usuario', async () => {
@@ -70,32 +71,32 @@ test('valida los campos obligatorios antes de consultar la base', async () => {
       payload: { nombre: datosUsuario.nombre }
     });
 
-    test('rechaza un tipo de usuario que no existe', async () => {
-      const consultas = [];
-      const app = Fastify();
-      app.decorate('sql', async (strings, ...valores) => {
-        consultas.push({ consulta: strings.join('?'), valores });
-        return [];
-      });
-      await app.register(crearUsuario);
+    assert.equal(response.statusCode, 400);
+    assert.equal(consultas, 0);
+  } finally {
+    await app.close();
+  }
+});
 
-      try {
-        const response = await app.inject({
-          method: 'POST',
-          url: '/usuarios',
-          payload: datosUsuario
-        });
+test('rechaza un tipo de usuario que no existe', async () => {
+  const consultas = [];
+  const app = Fastify();
+  app.decorate('sql', async (strings, ...valores) => {
+    consultas.push({ consulta: strings.join('?'), valores });
+    return [];
+  });
+  await app.register(crearUsuario);
 
-        assert.equal(response.statusCode, 400);
-        assert.equal(consultas.length, 1);
-        assert.equal(consultas[0].consulta.includes('INSERT INTO usuario'), false);
-      } finally {
-        await app.close();
-      }
+  try {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/usuarios',
+      payload: datosUsuario
     });
 
     assert.equal(response.statusCode, 400);
-    assert.equal(consultas, 0);
+    assert.equal(consultas.length, 1);
+    assert.equal(consultas[0].consulta.includes('INSERT INTO usuario'), false);
   } finally {
     await app.close();
   }
@@ -181,4 +182,111 @@ test('rechaza hashes no válidos y mantiene espacios significativos en la contra
   assert.equal(await verifyPassword(password.trim(), storedHash), false);
   assert.equal(await verifyPassword(password, 'contraseña en texto plano'), false);
   assert.equal(await verifyPassword(password, null), false);
+});
+
+test('limita los intentos de login sin aplicar el límite estricto a /me', async () => {
+  const app = Fastify();
+  await app.register(fastifyRateLimit, {
+    max: 100,
+    timeWindow: '1 minute',
+    errorResponseBuilder: () => ({
+      statusCode: 429,
+      success: false,
+      message: 'Demasiadas solicitudes. Por favor, intenta nuevamente en un minuto.'
+    })
+  });
+  app.decorate('sql', async () => []);
+  await app.register(fastifyJwt, { secret: 'test-secret' });
+  app.decorate('authenticate', async function (request, reply) {
+    try {
+      await request.jwtVerify();
+    } catch (err) {
+      return reply.code(401).send({
+        success: false,
+        message: 'Sesión inválida o expirada. Inicia sesión nuevamente.'
+      });
+    }
+  });
+
+  test('limita la creación de cuentas en /usuarios', async () => {
+    const app = Fastify();
+    await app.register(fastifyRateLimit, {
+      max: 100,
+      timeWindow: '1 minute',
+      errorResponseBuilder: () => ({
+        statusCode: 429,
+        success: false,
+        message: 'Demasiadas solicitudes. Por favor, intenta nuevamente en un minuto.'
+      })
+    });
+    app.decorate('sql', async () => {
+      throw new Error('La validación de esquema debe ocurrir antes de consultar la base.');
+    });
+    await app.register(crearUsuario);
+
+    try {
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        const response = await app.inject({
+          method: 'POST',
+          url: '/usuarios',
+          payload: {}
+        });
+        assert.equal(response.statusCode, 400);
+      }
+
+      const bloqueado = await app.inject({
+        method: 'POST',
+        url: '/usuarios',
+        payload: {}
+      });
+      assert.equal(bloqueado.statusCode, 429);
+      assert.deepEqual(bloqueado.json(), {
+        statusCode: 429,
+        success: false,
+        message: 'Demasiadas solicitudes. Por favor, intenta nuevamente en un minuto.'
+      });
+    } finally {
+      await app.close();
+    }
+  });
+  await app.register(logUser);
+
+  try {
+    const loginPayload = {
+      nombre: datosUsuario.nombre,
+      contrasena: datosUsuario.contrasena
+    };
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/login',
+        payload: loginPayload
+      });
+      assert.equal(response.statusCode, 401);
+    }
+
+    const bloqueado = await app.inject({
+      method: 'POST',
+      url: '/login',
+      payload: loginPayload
+    });
+    assert.equal(bloqueado.statusCode, 429);
+    assert.deepEqual(bloqueado.json(), {
+      statusCode: 429,
+      success: false,
+      message: 'Demasiadas solicitudes. Por favor, intenta nuevamente en un minuto.'
+    });
+
+    const token = app.jwt.sign({ id_usuario: 1 });
+    for (let requestNumber = 0; requestNumber < 6; requestNumber += 1) {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/me',
+        headers: { authorization: `Bearer ${token}` }
+      });
+      assert.equal(response.statusCode, 200);
+    }
+  } finally {
+    await app.close();
+  }
 });

@@ -13,7 +13,15 @@ const logUserSchema = {
 };
 
 export default async function logUser(fastify) {
-    fastify.post('/login', { schema: logUserSchema }, async (request, reply) => {
+    fastify.post('/login', {
+        schema: logUserSchema,
+        config: {
+            rateLimit: {
+                max: 5,
+                timeWindow: '1 minute'
+            }
+        }
+    }, async (request, reply) => {
         try {
             const { nombre, contrasena } = request.body;   
             
