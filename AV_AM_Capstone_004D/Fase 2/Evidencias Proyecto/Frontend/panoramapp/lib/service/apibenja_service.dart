@@ -15,7 +15,7 @@ class ApibenjaService {
               Uri.parse(url),
               headers: {'Accept': 'application/json'},
             )
-            .timeout(const Duration(seconds: 10));
+            .timeout(const Duration(seconds: 7));
 
         if (rspta.statusCode == 200) {
           final dynamic rsptaJson = jsonDecode(rspta.body);
@@ -199,6 +199,9 @@ class ApibenjaService {
       imagen: imageUrl,
       fuenteInfo: eventUrl,
       organizador: promoter,
+      creatorId: json['id_usuario_creador']?.toString() ??
+          json['creador_id']?.toString() ??
+          json['id_usuario']?.toString(),
     );
   }
 

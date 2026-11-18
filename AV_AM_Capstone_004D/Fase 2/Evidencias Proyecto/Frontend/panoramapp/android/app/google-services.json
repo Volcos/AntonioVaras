@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "311188719547",
+    "project_id": "panoramapp-510914",
+    "storage_bucket": "panoramapp-510914.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:311188719547:android:3e60d6605c9b5cbecc269e",
+        "android_client_info": {
+          "package_name": "com.example.capstone"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAIAzdXcaXAv7qEbVvqZuOunX2a2EKHhoA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

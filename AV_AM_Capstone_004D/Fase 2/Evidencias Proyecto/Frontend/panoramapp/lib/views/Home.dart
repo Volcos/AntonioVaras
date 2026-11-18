@@ -8,10 +8,11 @@ import 'package:capstone/service/api_event.dart';
 import 'package:capstone/service/web_service.dart';
 import 'package:capstone/service/bookmark_manager.dart'; // Importamos el manager de guardados
 import 'package:capstone/service/location_service.dart';
+import 'package:capstone/service/image_cache.dart';
 import 'package:capstone/views/event_detail_screen.dart';
 import 'package:capstone/views/saved_events.dart'; // Importamos la nueva vista de guardados
 import 'package:capstone/views/map.dart'; // Importamos la vista del mapa
-import 'package:capstone/views/create_event.dart';
+import 'package:capstone/views/profile_view.dart';
 
 class Home extends StatefulWidget {
   const Home({super.key});
@@ -26,11 +27,14 @@ class _HomeState extends State<Home> {
   bool _mapInitialized = false;
   String _searchQuery = ''; // <-- Nueva variable para el estado del buscador
   Timer? _searchDebounce;
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void dispose() {
     _currentIndex.dispose();
     _searchDebounce?.cancel();
+    _searchController.dispose();
+    Webservice.eventRevision.removeListener(_onEventsChanged);
     super.dispose();
   }
 
@@ -38,6 +42,16 @@ class _HomeState extends State<Home> {
   void initState() {
     super.initState();
     _eventsFuture = Webservice.getEvents();
+    Webservice.eventRevision.addListener(_onEventsChanged);
+  }
+
+  void _onEventsChanged() {
+    if (!mounted) return;
+    setState(() {
+      _eventsFuture = Future.value(
+        Webservice.cachedEvents,
+      );
+    });
   }
 
   @override
@@ -62,7 +76,7 @@ class _HomeState extends State<Home> {
                         ? const MapView()
                         : _buildPlaceholder('Explorar'),
                     const SavedEventsView(),
-                    const CreateEventView(),
+                    const ProfileView(),
                   ],
                 ),
 
@@ -133,6 +147,7 @@ class _HomeState extends State<Home> {
                               ),
                             ),
                             child: TextField(
+                              controller: _searchController,
                               style: const TextStyle(color: Colors.white),
                               onChanged: (value) {
                                 _searchDebounce?.cancel();
@@ -182,7 +197,7 @@ class _HomeState extends State<Home> {
                       NavItem(CupertinoIcons.home, 'Inicio'),
                       NavItem(CupertinoIcons.map, 'Explorar'),
                       NavItem(CupertinoIcons.bookmark, 'Guardados'),
-                      NavItem(CupertinoIcons.add_circled, 'Crear'),
+                      NavItem(CupertinoIcons.person, 'Perfil'),
                     ],
                   ),
                 ),
@@ -344,20 +359,41 @@ class _HomeState extends State<Home> {
               Positioned.fill(
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(35),
-                  child: CachedNetworkImage(
-                    imageUrl: event.imagen.isNotEmpty
-                        ? event.imagen
-                        : 'https://images.unsplash.com/photo-1549834125-82d3c48159a3?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
-                    fit: BoxFit.cover,
-                    memCacheWidth: 800,
-                    memCacheHeight: 640,
-                    maxWidthDiskCache: 800,
-                    maxHeightDiskCache: 640,
-                    placeholder: (context, url) =>
-                        const ColoredBox(color: Color(0xFF202020)),
-                    errorWidget: (context, url, error) =>
-                        const SizedBox.shrink(),
-                  ),
+                  child: event.imagen.startsWith('data:image/')
+                      ? FutureBuilder<Uint8List?>(
+                          future: Base64ImageCache.decodeBase64Async(
+                            event.imagen,
+                          ),
+                          builder: (context, snapshot) {
+                            final bytes = snapshot.data;
+                            return bytes == null
+                                ? const ColoredBox(
+                                    color: Color(0xFF202020),
+                                  )
+                                : Image.memory(
+                                    bytes,
+                                    fit: BoxFit.cover,
+                                    cacheWidth: 800,
+                                    cacheHeight: 640,
+                                    gaplessPlayback: true,
+                                    filterQuality: FilterQuality.low,
+                                  );
+                          },
+                        )
+                      : CachedNetworkImage(
+                          imageUrl: event.imagen.isNotEmpty
+                              ? event.imagen
+                              : 'https://images.unsplash.com/photo-1549834125-82d3c48159a3?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+                          fit: BoxFit.cover,
+                          memCacheWidth: 800,
+                          memCacheHeight: 640,
+                          maxWidthDiskCache: 800,
+                          maxHeightDiskCache: 640,
+                          placeholder: (context, url) =>
+                              const ColoredBox(color: Color(0xFF202020)),
+                          errorWidget: (context, url, error) =>
+                              const SizedBox.shrink(),
+                        ),
                 ),
               ),
               Positioned.fill(
@@ -423,7 +459,7 @@ class _HomeState extends State<Home> {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(25),
                   child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                    filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
                     child: Container(
                       padding: const EdgeInsets.all(15),
                       decoration: BoxDecoration(
@@ -605,7 +641,7 @@ class _GlassNavBarState extends State<GlassNavBar> {
           child: ClipRRect(
             borderRadius: BorderRadius.circular(40),
             child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
+              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
               child: Container(
                 height: 75,
                 decoration: BoxDecoration(
@@ -712,7 +748,7 @@ class _GlassNavBarState extends State<GlassNavBar> {
           borderRadius: BorderRadius.circular(50),
           child: BackdropFilter(
             // El filtro destructor para simular una gota esférica oscura.
-            filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+            filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
             child: Container(
               decoration: BoxDecoration(
                 color: const Color(0x99000000),

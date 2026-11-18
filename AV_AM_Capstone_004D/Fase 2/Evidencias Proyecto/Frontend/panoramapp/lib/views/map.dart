@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -10,6 +11,7 @@ import 'package:capstone/service/location_service.dart';
 import 'package:capstone/service/api_event.dart';
 import 'package:capstone/service/web_service.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
+import 'package:capstone/service/image_cache.dart';
 import 'package:capstone/views/event_detail_screen.dart';
 
 class MapView extends StatefulWidget {
@@ -34,14 +36,21 @@ class _MapViewState extends State<MapView> {
   _RouteMode _routeMode = _RouteMode.driving;
   LatLng? _routeDestination;
   bool _routeLoading = false;
+  bool _markersLoading = false;
+  static final Map<String, Uint8List> _markerImageCache = {};
+  Uint8List? _fallbackMarkerImage;
+  static final Map<String, _CachedRoute> _routeCache = {};
+  int _routeRequestId = 0;
   String? _routeDistance;
   String? _routeDuration;
   Line? _routeLine;
+  final Map<String, Symbol> _eventSymbols = {};
   final Map<String, ApiEvent> _eventsBySymbolId = {};
 
   @override
   void initState() {
     super.initState();
+    Webservice.eventRevision.addListener(_onEventsChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _loadLocationPermission();
@@ -52,48 +61,66 @@ class _MapViewState extends State<MapView> {
   @override
   void dispose() {
     _mapController?.onSymbolTapped.remove(_onEventSymbolTapped);
+    Webservice.eventRevision.removeListener(_onEventsChanged);
+    _eventSymbols.clear();
     _eventsBySymbolId.clear();
     super.dispose();
   }
 
+  void _onEventsChanged() {
+    final controller = _mapController;
+    if (!mounted || controller == null) return;
+    unawaited(_onStyleLoaded());
+  }
+
   // Convierte la imagen URL a un avatar circular con borde blanco
+  Future<Uint8List?> _createCircularImageBytes(Uint8List bytes) async {
+    try {
+      final codec = await ui.instantiateImageCodec(
+        bytes,
+        targetWidth: 120,
+        targetHeight: 120,
+      );
+      final frameInfo = await codec.getNextFrame();
+      final image = frameInfo.image;
+
+      final recorder = ui.PictureRecorder();
+      final canvas = Canvas(recorder);
+      const radius = 60.0;
+      const center = Offset(radius, radius);
+
+      canvas.clipPath(
+        Path()..addOval(Rect.fromCircle(center: center, radius: radius)),
+      );
+      canvas.drawImage(image, Offset.zero, Paint()..isAntiAlias = true);
+
+      final borderPaint = Paint()
+        ..color = Colors.white
+        ..strokeWidth = 6.0
+        ..style = PaintingStyle.stroke
+        ..isAntiAlias = true;
+      canvas.drawCircle(center, radius - 3.0, borderPaint);
+
+      final img = await recorder.endRecording().toImage(120, 120);
+      final byteData = await img.toByteData(format: ui.ImageByteFormat.png);
+      return byteData?.buffer.asUint8List();
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<Uint8List?> _getCircularImageBytes(String url) async {
     Future<Uint8List?> tryGet(String targetUrl) async {
       try {
         if (targetUrl.isEmpty) return null;
+        if (targetUrl.startsWith('data:image/')) {
+          final bytes = await Base64ImageCache.decodeBase64Async(targetUrl);
+          if (bytes == null) return null;
+          return await _createCircularImageBytes(bytes);
+        }
         final file = await DefaultCacheManager().getSingleFile(targetUrl);
         final bytes = await file.readAsBytes();
-
-        final codec = await ui.instantiateImageCodec(
-          bytes,
-          targetWidth: 120,
-          targetHeight: 120,
-        );
-        final frameInfo = await codec.getNextFrame();
-        final image = frameInfo.image;
-
-        final pictureRecorder = ui.PictureRecorder();
-        final canvas = Canvas(pictureRecorder);
-        final paint = Paint()..isAntiAlias = true;
-
-        const radius = 60.0;
-        const center = Offset(radius, radius);
-
-        canvas.clipPath(
-          Path()..addOval(Rect.fromCircle(center: center, radius: radius)),
-        );
-        canvas.drawImage(image, Offset.zero, paint);
-
-        final borderPaint = Paint()
-          ..color = Colors.white
-          ..strokeWidth = 6.0
-          ..style = PaintingStyle.stroke
-          ..isAntiAlias = true;
-        canvas.drawCircle(center, radius - 3.0, borderPaint);
-
-        final img = await pictureRecorder.endRecording().toImage(120, 120);
-        final byteData = await img.toByteData(format: ui.ImageByteFormat.png);
-        return byteData?.buffer.asUint8List();
+        return await _createCircularImageBytes(bytes);
       } catch (_) {
         return null;
       }
@@ -144,6 +171,12 @@ class _MapViewState extends State<MapView> {
     setState(() {
       _locationPermissionGranted = granted;
     });
+
+    final controller = _mapController;
+    final destination = _routeDestination;
+    if (granted && controller != null && destination != null) {
+      await _drawRouteToDestination(controller, destination);
+    }
   }
 
   void _onMapCreated(MapLibreMapController controller) {
@@ -176,6 +209,7 @@ class _MapViewState extends State<MapView> {
           longitude != 0) {
         coordinate = LatLng(latitude, longitude);
       }
+
       coordinate ??= event.localizacion.isEmpty
           ? null
           : await LocationService.obtenerCoordenadasPorTexto(
@@ -186,11 +220,24 @@ class _MapViewState extends State<MapView> {
       final imageUrl = event.imagen.isNotEmpty
           ? event.imagen
           : 'https://images.unsplash.com/photo-1549834125-82d3c48159a3?ixlib=rb-4.0.3&auto=format&fit=crop&w=120&q=80';
+      final cachedMarkerImage = _markerImageCache[imageUrl];
+      if (cachedMarkerImage != null) {
+        return _EventMarker(
+          event: event,
+          index: index,
+          coordinate: coordinate,
+          imageBytes: cachedMarkerImage,
+        );
+      }
+      final markerImage = await _getCircularImageBytes(imageUrl);
+      if (markerImage != null && _markerImageCache.length < 40) {
+        _markerImageCache[imageUrl] = markerImage;
+      }
       return _EventMarker(
         event: event,
         index: index,
         coordinate: coordinate,
-        imageBytes: await _getCircularImageBytes(imageUrl),
+        imageBytes: markerImage,
       );
     } catch (error) {
       debugPrint('Error preparando evento ${event.nombre}: $error');
@@ -198,24 +245,144 @@ class _MapViewState extends State<MapView> {
     }
   }
 
+  Future<Uint8List> _getFallbackMarkerImage() async {
+    final existing = _fallbackMarkerImage;
+    if (existing != null) return existing;
+
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    const radius = 60.0;
+    const center = Offset(radius, radius);
+    final paint = Paint()
+      ..color = const Color(0xFFE91E63)
+      ..isAntiAlias = true;
+    canvas.drawCircle(center, radius, paint);
+    final borderPaint = Paint()
+      ..color = Colors.white
+      ..strokeWidth = 6.0
+      ..style = PaintingStyle.stroke
+      ..isAntiAlias = true;
+    canvas.drawCircle(center, radius - 3.0, borderPaint);
+    final image = await recorder.endRecording().toImage(120, 120);
+    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+    final bytes =
+        byteData?.buffer.asUint8List() ?? Uint8List.fromList(const <int>[]);
+    _fallbackMarkerImage = bytes;
+    return bytes;
+  }
+
+  Future<_EventMarker?> _prepareFastMarker(
+    ApiEvent event,
+    int index,
+    Uint8List fallbackImage,
+  ) async {
+    final latitude = double.tryParse(event.latitude ?? '');
+    final longitude = double.tryParse(event.longitude ?? '');
+    LatLng? coordinate;
+    if (latitude != null &&
+        longitude != null &&
+        latitude != 0 &&
+        longitude != 0) {
+      coordinate = LatLng(latitude, longitude);
+    }
+    coordinate ??= event.localizacion.isEmpty
+        ? null
+        : await LocationService.obtenerCoordenadasPorTexto(
+            event.localizacion,
+          ).timeout(const Duration(seconds: 2), onTimeout: () => null);
+    if (coordinate == null) return null;
+    return _EventMarker(
+      event: event,
+      index: index,
+      coordinate: coordinate,
+      imageBytes: fallbackImage,
+    );
+  }
+
+  Future<void> _upgradeMarkerImages(
+    MapLibreMapController controller,
+    List<ApiEvent> events,
+  ) async {
+    for (var start = 0; start < events.length; start += 4) {
+      if (!mounted) return;
+      await Future<void>.delayed(const Duration(milliseconds: 120));
+      final end = (start + 4).clamp(0, events.length);
+      final batch = events.sublist(start, end);
+      final markers = await Future.wait(
+        batch.asMap().entries.map(
+          (entry) => _prepareEventMarker(entry.value, start + entry.key),
+        ),
+      );
+
+      for (final marker in markers) {
+        if (marker?.imageBytes == null) continue;
+        final event = marker!.event;
+        Symbol? oldSymbol;
+        for (final entry in _eventsBySymbolId.entries) {
+          if (entry.value.id == event.id) {
+            oldSymbol = _eventSymbols[entry.key];
+            break;
+          }
+        }
+        if (oldSymbol == null) continue;
+
+        final imageId =
+            'evento_photo_${event.id}_${event.nombre.hashCode}';
+        try {
+          await controller.removeSymbol(oldSymbol);
+          _eventSymbols.remove(oldSymbol.id);
+          _eventsBySymbolId.remove(oldSymbol.id);
+          await controller.addImage(imageId, marker.imageBytes!);
+          final symbol = await controller.addSymbol(
+            SymbolOptions(
+              geometry: marker.coordinate,
+              iconImage: imageId,
+              iconSize: 0.8,
+              textField: event.nombre,
+              textSize: 12.0,
+              textOffset: const Offset(0, 1.5),
+              textHaloColor: '#FFFFFF',
+              textHaloWidth: 2.0,
+              textColor: '#000000',
+            ),
+          );
+          _eventsBySymbolId[symbol.id] = event;
+          _eventSymbols[symbol.id] = symbol;
+        } catch (_) {}
+      }
+    }
+  }
+
   Future<void> _onStyleLoaded() async {
     final controller = _mapController;
     if (controller == null) return;
+    if (_markersLoading) return;
+    _markersLoading = true;
 
+    for (final symbol in _eventSymbols.values) {
+      await controller.removeSymbol(symbol);
+    }
+    _eventSymbols.clear();
     _eventsBySymbolId.clear();
     try {
       final destination = await _focusSelectedEvent(controller);
       // 1. Obtenemos todos los eventos usando tu Webservice (el mismo que usa home.dart)
       final eventos = await Webservice.getEvents();
+      final fallbackImage = await _getFallbackMarkerImage();
 
-      for (var start = 0; start < eventos.length; start += 6) {
-        final end = (start + 6).clamp(0, eventos.length);
+      for (var start = 0; start < eventos.length; start += 8) {
+        final end = (start + 8).clamp(0, eventos.length);
         final batch = eventos.sublist(start, end);
         final markers = await Future.wait(
           batch.asMap().entries.map(
-            (entry) => _prepareEventMarker(entry.value, start + entry.key),
+            (entry) => _prepareFastMarker(
+              entry.value,
+              start + entry.key,
+              fallbackImage,
+            ),
           ),
         );
+        await Future<void>.delayed(Duration.zero);
 
         for (final marker in markers) {
           if (marker == null) continue;
@@ -252,18 +419,22 @@ class _MapViewState extends State<MapView> {
                 ),
               );
               _eventsBySymbolId[symbol.id] = evento;
+              _eventSymbols[symbol.id] = symbol;
             }
           } catch (e) {
             debugPrint('Error dibujando evento ${evento.nombre} en mapa: $e');
           }
         }
       }
+      unawaited(_upgradeMarkerImages(controller, eventos));
       if (destination != null) {
         _routeDestination = destination;
         await _drawRouteToDestination(controller, destination);
       }
     } catch (e) {
       debugPrint("Error dibujando eventos en mapa: $e");
+    } finally {
+      _markersLoading = false;
     }
   }
 
@@ -301,18 +472,30 @@ class _MapViewState extends State<MapView> {
     }
     if (!_locationPermissionGranted) return;
 
-    final origin = await LocationService.obtenerUbicacionActual(controller);
+    var origin = LocationService.lastKnownLocation;
+    origin ??= await LocationService.obtenerUbicacionActual(
+      controller,
+    ).timeout(const Duration(seconds: 4), onTimeout: () => null);
     if (origin == null) return;
 
     if (mounted) setState(() => _routeLoading = true);
+    final routeKey =
+        '${_routeMode.name}:${origin.latitude},${origin.longitude}:${destination.latitude},${destination.longitude}';
+    final cachedRoute = _routeCache[routeKey];
+    if (cachedRoute != null) {
+      await _renderCachedRoute(controller, destination, cachedRoute);
+      return;
+    }
+    final requestId = ++_routeRequestId;
     final uri = Uri.https(
       'routing.openstreetmap.de',
       '/${_routeMode.router}/route/v1/driving/${origin.longitude},${origin.latitude};'
           '${destination.longitude},${destination.latitude}',
-      {'overview': 'full', 'geometries': 'geojson', 'steps': 'true'},
+      {'overview': 'full', 'geometries': 'geojson', 'steps': 'false'},
     );
     try {
-      final response = await http.get(uri).timeout(const Duration(seconds: 12));
+      final response = await http.get(uri).timeout(const Duration(seconds: 7));
+      if (requestId != _routeRequestId) return;
       if (response.statusCode != 200) return;
 
       final decoded = jsonDecode(response.body);
@@ -334,6 +517,14 @@ class _MapViewState extends State<MapView> {
 
       _routeDistance = _formatDistance(route['distance']);
       _routeDuration = _formatDuration(route['duration']);
+      _routeCache[routeKey] = _CachedRoute(
+        points: points,
+        distance: route['distance'],
+        duration: route['duration'],
+      );
+      if (_routeCache.length > 10) {
+        _routeCache.remove(_routeCache.keys.first);
+      }
       if (mounted) setState(() {});
 
       final previousLine = _routeLine;
@@ -357,6 +548,7 @@ class _MapViewState extends State<MapView> {
     final destination = _routeDestination;
     final controller = _mapController;
     if (destination == null || controller == null || _routeMode == mode) return;
+    _routeRequestId++;
     setState(() {
       _routeMode = mode;
       _routeDistance = null;
@@ -374,6 +566,30 @@ class _MapViewState extends State<MapView> {
     final minutes = ((seconds as num) / 60).round();
     if (minutes < 60) return '$minutes min';
     return '${minutes ~/ 60} h ${minutes % 60} min';
+  }
+
+  Future<void> _renderCachedRoute(
+    MapLibreMapController controller,
+    LatLng destination,
+    _CachedRoute cachedRoute,
+  ) async {
+    _routeDistance = _formatDistance(cachedRoute.distance);
+    _routeDuration = _formatDuration(cachedRoute.duration);
+    if (mounted) setState(() {});
+
+    final previousLine = _routeLine;
+    if (previousLine != null) {
+      await controller.removeLine(previousLine);
+    }
+    _routeLine = await controller.addLine(
+      LineOptions(
+        geometry: cachedRoute.points,
+        lineColor: '#E91E63',
+        lineWidth: 5,
+        lineOpacity: 0.85,
+      ),
+    );
+    if (mounted) setState(() => _routeLoading = false);
   }
 
   Widget _routeOptions() {
@@ -475,8 +691,10 @@ class _MapViewState extends State<MapView> {
                 if (!_locationPermissionGranted || !mounted) return;
               }
 
-              final currentLocation =
-                  await LocationService.obtenerUbicacionActual(controller);
+              var currentLocation = LocationService.lastKnownLocation;
+              currentLocation ??= await LocationService.obtenerUbicacionActual(
+                controller,
+              ).timeout(const Duration(seconds: 4), onTimeout: () => null);
 
               if (currentLocation == null) {
                 if (!mounted) return;
@@ -550,6 +768,18 @@ class _EventMarker {
     required this.index,
     required this.coordinate,
     required this.imageBytes,
+  });
+}
+
+class _CachedRoute {
+  final List<LatLng> points;
+  final dynamic distance;
+  final dynamic duration;
+
+  const _CachedRoute({
+    required this.points,
+    required this.distance,
+    required this.duration,
   });
 }
 

@@ -45,6 +45,7 @@ class CreateEventService {
     double? latitud,
     double? longitud,
     required String organizador,
+    String? creatorId,
     required List<EventDateInput> fechas,
   }) async {
     final response = await http
@@ -71,6 +72,7 @@ class CreateEventService {
             'organizador': organizador.trim().isEmpty
                 ? null
                 : organizador.trim(),
+            'id_usuario_creador': creatorId,
             'fechas': fechas.map((fecha) => fecha.toJson()).toList(),
           }),
         )
@@ -97,6 +99,37 @@ class CreateEventService {
     }
 
     return decoded;
+  }
+
+  static Future<void> deleteEvent({
+    required String eventId,
+    required String token,
+  }) async {
+    final response = await http
+        .delete(
+          Uri.parse('$_endpoint/$eventId'),
+          headers: {
+            'Accept': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+        )
+        .timeout(const Duration(seconds: 15));
+
+    dynamic decoded;
+    try {
+      decoded = jsonDecode(response.body);
+    } on FormatException {
+      decoded = null;
+    }
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      final message = decoded is Map
+          ? (decoded['message'] ?? decoded['error'])?.toString()
+          : null;
+      throw Exception(
+        message ?? 'No se pudo eliminar el evento (${response.statusCode}).',
+      );
+    }
   }
 
   static Future<List<String>> getEventTypes() async {

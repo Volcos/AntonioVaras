@@ -4,7 +4,23 @@
     <option name="autoReloadType" value="NONE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f69f05bb-a385-445e-82d5-550931def469" name="Changes" comment="" />
+    <list default="true" id="f69f05bb-a385-445e-82d5-550931def469" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/caches/deviceStreaming.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/caches/deviceStreaming.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Frontend/panoramapp/.idea/caches/deviceStreaming.xml" beforeDir="false" afterPath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Frontend/panoramapp/.idea/caches/deviceStreaming.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Frontend/panoramapp/android/app/src/main/res/drawable-v21/launch_background.xml" beforeDir="false" afterPath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Frontend/panoramapp/android/app/src/main/res/drawable-v21/launch_background.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Frontend/panoramapp/android/app/src/main/res/drawable/launch_background.xml" beforeDir="false" afterPath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Frontend/panoramapp/android/app/src/main/res/drawable/launch_background.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Frontend/panoramapp/lib/main.dart" beforeDir="false" afterPath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Frontend/panoramapp/lib/main.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Frontend/panoramapp/lib/service/web_service.dart" beforeDir="false" afterPath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Frontend/panoramapp/lib/service/web_service.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Frontend/panoramapp/lib/views/Home.dart" beforeDir="false" afterPath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Frontend/panoramapp/lib/views/Home.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Frontend/panoramapp/lib/views/create_event.dart" beforeDir="false" afterPath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Frontend/panoramapp/lib/views/create_event.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Frontend/panoramapp/lib/views/event_detail_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Frontend/panoramapp/lib/views/event_detail_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Frontend/panoramapp/lib/views/map.dart" beforeDir="false" afterPath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Frontend/panoramapp/lib/views/map.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Frontend/panoramapp/lib/views/saved_events.dart" beforeDir="false" afterPath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Frontend/panoramapp/lib/views/saved_events.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Frontend/panoramapp/pubspec.lock" beforeDir="false" afterPath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Frontend/panoramapp/pubspec.lock" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Frontend/panoramapp/pubspec.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Frontend/panoramapp/pubspec.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Frontend/panoramapp/test/widget_test.dart" beforeDir="false" afterPath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Frontend/panoramapp/test/widget_test.dart" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -41,12 +57,13 @@
   <component name="ProjectSessionTemplates">
     <option name="panelTemplate">
       <template>
-        <option name="ensembleEnabled" value="false" />
+        <option name="ensembleEnabled" value="true" />
+        <option name="ensembleTierId" value="balance" />
         <option name="modeId" value="Agent" />
         <option name="model">
           <model>
             <option name="modelType" value="builtin_id" />
-            <option name="modelValue" value="auto" />
+            <option name="modelValue" value="ensemble" />
           </model>
         </option>
         <option name="targetType" value="BACKGROUND" />

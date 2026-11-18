@@ -1,30 +1,59 @@
 import 'api_event.dart';
 import 'ticketmaster_service.dart';
 import 'apibenja_service.dart';
+import 'package:flutter/foundation.dart';
 
 class Webservice {
   static Future<List<ApiEvent>>? _eventsRequest;
   static List<ApiEvent>? _cachedEvents;
+  static final ValueNotifier<int> eventRevision = ValueNotifier<int>(0);
+
+  static List<ApiEvent> get cachedEvents =>
+      _cachedEvents == null ? <ApiEvent>[] : List<ApiEvent>.from(_cachedEvents!);
 
   // Este servicio actúa como "Orquestador".
   static Future<List<ApiEvent>> getEvents({bool forceRefresh = false}) {
+    if (!forceRefresh && _cachedEvents != null) {
+      return Future.value(_cachedEvents!);
+    }
     final cachedRequest = _eventsRequest;
     if (!forceRefresh && cachedRequest != null) {
       return cachedRequest;
     }
-    if (!forceRefresh && _cachedEvents != null) {
-      return Future.value(_cachedEvents!);
-    }
 
     final request = _loadEventsWithCache();
     _eventsRequest = request;
+    request.then((events) {
+      if (events.isEmpty) {
+        _eventsRequest = null;
+      }
+    });
     return request;
+  }
+
+  static Future<List<ApiEvent>> refreshEvents() async {
+    final events = await getEvents(forceRefresh: true);
+    eventRevision.value++;
+    return events;
   }
 
   static Future<List<ApiEvent>> _loadEventsWithCache() async {
     try {
-      final events = await _loadEvents();
-      _cachedEvents = events;
+      var events = await _loadEvents();
+
+      // Una fuente puede tardar en responder durante el primer arranque.
+      // Reintentamos una vez antes de considerar vacia la carga.
+      if (events.isEmpty) {
+        await Future<void>.delayed(const Duration(milliseconds: 900));
+        events = await _loadEvents();
+      }
+
+      if (events.isNotEmpty) {
+        _cachedEvents = events;
+      } else {
+        _cachedEvents = null;
+        _eventsRequest = null;
+      }
       return events;
     } catch (_) {
       _eventsRequest = null;
@@ -33,27 +62,124 @@ class Webservice {
   }
 
   static Future<List<ApiEvent>> _loadEvents() async {
-    List<ApiEvent> allEvents = [];
+    List<ApiEvent> ticketmasterEvents = [];
+    List<ApiEvent> benjaEvents = [];
 
-    // Recolectar eventos en paralelo con Future.wait
+    void publishPartialEvents() {
+      final allEvents = <ApiEvent>[
+        ...ticketmasterEvents,
+        ...benjaEvents,
+      ];
+      if (allEvents.isEmpty) return;
+
+      final consolidated =
+          _filterExpiredEvents(_groupEvents(List<ApiEvent>.from(allEvents)));
+      if (consolidated.isEmpty) return;
+
+      _cachedEvents = consolidated;
+      eventRevision.value++;
+    }
+
+    final ticketmasterRequest =
+        TicketmasterService.getEvents().catchError((e) {
+      print('Error al obtener eventos de Ticketmaster: $e');
+      return <ApiEvent>[];
+    }).then((events) {
+      ticketmasterEvents = events;
+      publishPartialEvents();
+      return events;
+    });
+
+    final benjaRequest = ApibenjaService.getEvents().catchError((e) {
+      print('Error al obtener eventos de API Benja: $e');
+      return <ApiEvent>[];
+    }).then((events) {
+      benjaEvents = events;
+      publishPartialEvents();
+      return events;
+    });
+
     final results = await Future.wait([
-      TicketmasterService.getEvents().catchError((e) {
-        print('Error al obtener eventos de Ticketmaster: $e');
-        return <ApiEvent>[];
-      }),
-      ApibenjaService.getEvents().catchError((e) {
-        print('Error al obtener eventos de API Benja: $e');
-        return <ApiEvent>[];
-      }),
+      ticketmasterRequest,
+      benjaRequest,
     ]);
 
-    allEvents.addAll(results[0]);
-    allEvents.addAll(results[1]);
+    final allEvents = <ApiEvent>[
+      ...results[0],
+      ...results[1],
+    ];
 
     print('Total de eventos consolidados: ${allEvents.length}');
 
-    // Agrupar registros del mismo evento
-    return _groupEvents(allEvents);
+    final consolidated =
+        _filterExpiredEvents(_groupEvents(List<ApiEvent>.from(allEvents)));
+    if (consolidated.isNotEmpty) {
+      _cachedEvents = consolidated;
+      eventRevision.value++;
+    }
+    return consolidated;
+  }
+
+  static List<ApiEvent> _filterExpiredEvents(List<ApiEvent> events) {
+    final today = DateTime.now();
+    final todayStart = DateTime(today.year, today.month, today.day);
+    final activeEvents = <ApiEvent>[];
+
+    for (final event in events) {
+      final lines = event.fechaInicio
+          .split('\n')
+          .map((line) => line.trim())
+          .where((line) => line.isNotEmpty)
+          .toList();
+
+      if (lines.isNotEmpty) {
+        final activeLines = lines.where((line) {
+          final date = _extractDate(line);
+          if (date == null) return true;
+          final endDate = _extractDate(event.fechaTermino);
+          final referenceDate = endDate ?? date;
+          return !referenceDate.isBefore(todayStart);
+        }).toList();
+
+        if (activeLines.isEmpty) continue;
+        event.fechaInicio = activeLines.join('\n');
+      } else {
+        final endDate = _extractDate(event.fechaTermino);
+        final startDate = _extractDate(event.fechaInicio);
+        final referenceDate = endDate ?? startDate;
+        if (referenceDate != null && referenceDate.isBefore(todayStart)) {
+          continue;
+        }
+      }
+
+      activeEvents.add(event);
+    }
+
+    return activeEvents;
+  }
+
+  static DateTime? _extractDate(String value) {
+    final match = RegExp(r'(\d{4})[-/](\d{1,2})[-/](\d{1,2})')
+        .firstMatch(value);
+    if (match != null) {
+      return DateTime(
+        int.parse(match.group(1)!),
+        int.parse(match.group(2)!),
+        int.parse(match.group(3)!),
+      );
+    }
+
+    final dayFirst = RegExp(r'(\d{1,2})/(\d{1,2})/(\d{4})')
+        .firstMatch(value);
+    if (dayFirst != null) {
+      return DateTime(
+        int.parse(dayFirst.group(3)!),
+        int.parse(dayFirst.group(2)!),
+        int.parse(dayFirst.group(1)!),
+      );
+    }
+
+    return null;
   }
 
   // Agrupa las distintas funciones del mismo espectáculo en una tarjeta.

@@ -5,15 +5,57 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:capstone/service/api_event.dart';
 import 'package:capstone/service/bookmark_manager.dart'; // <-- Traemos el manager
 import 'package:capstone/service/location_service.dart'; // <-- Location service para geocoding
+import 'package:capstone/service/image_cache.dart';
+import 'package:capstone/service/auth_service.dart';
+import 'package:capstone/service/create_event_service.dart';
+import 'package:capstone/service/web_service.dart';
 import 'package:capstone/views/map.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:flutter/services.dart';
 
-class EventDetailScreen extends StatelessWidget {
+class EventDetailScreen extends StatefulWidget {
   final ApiEvent event;
 
   const EventDetailScreen({super.key, required this.event});
+
+  @override
+  State<EventDetailScreen> createState() => _EventDetailScreenState();
+}
+
+class _EventDetailScreenState extends State<EventDetailScreen> {
+  AuthUser? _user;
+
+  ApiEvent get event => widget.event;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUser();
+  }
+
+  Future<void> _loadUser() async {
+    final user = await AuthService.getSavedUser();
+    if (mounted) setState(() => _user = user);
+  }
+
+  bool get _canDeleteEvent {
+    final user = _user;
+    if (user == null) return false;
+    if (user.userType == 1) return true;
+    if (user.userType != 3) return false;
+
+    final creatorId = event.creatorId?.trim();
+    if (creatorId != null &&
+        creatorId.isNotEmpty &&
+        creatorId == user.id) {
+      return true;
+    }
+
+    return event.organizador.trim().isNotEmpty &&
+        event.organizador.trim().toLowerCase() ==
+            user.name.trim().toLowerCase();
+  }
 
   Future<void> _launchUrl(BuildContext context) async {
     final String urlString = event.fuenteInfo;
@@ -35,6 +77,72 @@ class EventDetailScreen extends StatelessWidget {
     }
   }
 
+  Future<void> _deleteEvent() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF202020),
+        title: const Text(
+          'Eliminar evento',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: Text(
+          '¿Quieres eliminar "${event.nombre}"?',
+          style: const TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+            ),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
+    final token = await AuthService.getToken();
+    if (token == null || token.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Debes iniciar sesión nuevamente.'),
+        ),
+      );
+      return;
+    }
+
+    try {
+      await CreateEventService.deleteEvent(
+        eventId: event.id ?? '',
+        token: token,
+      );
+      await Webservice.refreshEvents();
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Evento eliminado correctamente.'),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            error.toString().replaceFirst('Exception: ', ''),
+          ),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -49,27 +157,46 @@ class EventDetailScreen extends StatelessWidget {
               left: 0,
               right: 0,
               height: MediaQuery.of(context).size.height * 0.65,
-              child: CachedNetworkImage(
-                imageUrl: event.imagen.isNotEmpty
-                    ? event.imagen
-                    : 'https://images.unsplash.com/photo-1549834125-82d3c48159a3?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
-                fit: BoxFit.cover,
-                memCacheWidth: 1080,
-                memCacheHeight: 900,
-                maxWidthDiskCache: 1080,
-                maxHeightDiskCache: 900,
-                placeholder: (context, url) =>
-                    const ColoredBox(color: Color(0xFF202020)),
-                errorWidget: (context, url, error) => Container(
-                  color: const Color(0xFF202020),
-                  alignment: Alignment.center,
-                  child: const Icon(
-                    CupertinoIcons.photo,
-                    color: Colors.white54,
-                    size: 48,
-                  ),
-                ),
-              ),
+              child: event.imagen.startsWith('data:image/')
+                  ? FutureBuilder<Uint8List?>(
+                      future: Base64ImageCache.decodeBase64Async(
+                        event.imagen,
+                      ),
+                      builder: (context, snapshot) {
+                        final bytes = snapshot.data;
+                        return bytes == null
+                            ? const ColoredBox(color: Color(0xFF202020))
+                            : Image.memory(
+                                bytes,
+                                fit: BoxFit.cover,
+                                cacheWidth: 1080,
+                                cacheHeight: 900,
+                                gaplessPlayback: true,
+                                filterQuality: FilterQuality.low,
+                              );
+                      },
+                    )
+                  : CachedNetworkImage(
+                      imageUrl: event.imagen.isNotEmpty
+                          ? event.imagen
+                          : 'https://images.unsplash.com/photo-1549834125-82d3c48159a3?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+                      fit: BoxFit.cover,
+                      memCacheWidth: 1080,
+                      memCacheHeight: 900,
+                      maxWidthDiskCache: 1080,
+                      maxHeightDiskCache: 900,
+                      placeholder: (context, url) =>
+                          const ColoredBox(color: Color(0xFF202020)),
+                      errorWidget: (context, url, error) => Container(
+                        color: const Color(0xFF202020),
+                        alignment: Alignment.center,
+                        child: const Icon(
+                          CupertinoIcons.photo,
+                          color: Colors.white54,
+                          size: 48,
+                        ),
+                      ),
+                    ),
             ),
 
             // Degradado suavizado hacia negro puro
@@ -104,6 +231,34 @@ class EventDetailScreen extends StatelessWidget {
                     CupertinoIcons.back,
                     () => Navigator.pop(context),
                   ),
+                  if (_canDeleteEvent)
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _buildGlassButton(
+                          CupertinoIcons.trash,
+                          _deleteEvent,
+                          iconColor: Colors.redAccent,
+                        ),
+                        const SizedBox(width: 10),
+                        ValueListenableBuilder<List<ApiEvent>>(
+                          valueListenable: BookmarkManager().savedEvents,
+                          builder: (context, saved, _) {
+                            final isSaved = BookmarkManager().isSaved(event);
+                            return _buildGlassButton(
+                              isSaved
+                                  ? CupertinoIcons.bookmark_fill
+                                  : CupertinoIcons.bookmark,
+                              () => BookmarkManager().toggleBookmark(event),
+                              iconColor: isSaved
+                                  ? Colors.pinkAccent
+                                  : Colors.white,
+                            );
+                          },
+                        ),
+                      ],
+                    )
+                  else
                   // Envolvemos el botón de guardar en el escuchador para que se pinte si está guardado
                   ValueListenableBuilder<List<ApiEvent>>(
                     valueListenable: BookmarkManager().savedEvents,

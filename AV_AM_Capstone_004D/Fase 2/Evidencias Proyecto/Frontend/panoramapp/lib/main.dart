@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:capstone/views/Home.dart';
+import 'package:firebase_core/firebase_core.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
+  runApp(const MyApp(initialHome: Home()));
 
   Future<void> hideNavigationBar() async {
     await SystemChrome.setEnabledSystemUIMode(
@@ -34,15 +37,18 @@ Future<void> main() async {
     systemNavigationBarIconBrightness: Brightness.dark,
   ));
 
-  runApp(const MyApp());
-
   // Android puede mostrar temporalmente la navegación durante el arranque.
   // La ocultamos nuevamente después de que la interfaz termine de aparecer.
   Future<void>.delayed(const Duration(seconds: 2), hideNavigationBar);
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final Widget? initialHome;
+
+  const MyApp({
+    super.key,
+    this.initialHome,
+  });
 
 
   @override
@@ -73,7 +79,7 @@ class MyApp extends StatelessWidget {
       // el tema (claro/oscuro) que el usuario tiene configurado en su celular
       themeMode: ThemeMode.system, 
       
-      home: Home(),
+      home: initialHome ?? const Home(),
     );
   }
 }

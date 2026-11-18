@@ -1,10 +1,15 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import 'package:capstone/service/create_event_service.dart';
 import 'package:capstone/service/location_service.dart';
+import 'package:capstone/service/web_service.dart';
+import 'package:capstone/service/auth_service.dart';
 
 class CreateEventView extends StatefulWidget {
   const CreateEventView({super.key});
@@ -36,12 +41,30 @@ class CreateEventViewState extends State<CreateEventView> {
   List<AddressSuggestion> _addressSuggestions = [];
   int _addressSearchRequest = 0;
   AddressSuggestion? _selectedAddress;
+  Uint8List? _selectedImageBytes;
+  String? _selectedImageName;
+  final ImagePicker _imagePicker = ImagePicker();
+  AuthUser? _creator;
+  bool _loadingCreator = true;
 
   @override
   void initState() {
     super.initState();
     _addressFocus.addListener(() {
       if (!_addressFocus.hasFocus) _resolveAddress();
+    });
+    _loadCreator();
+  }
+
+  Future<void> _loadCreator() async {
+    final creator = await AuthService.getSavedUser();
+    if (!mounted) return;
+    setState(() {
+      _creator = creator;
+      _loadingCreator = false;
+      if (creator?.userType == 3) {
+        _organizer.text = creator?.name ?? '';
+      }
     });
   }
 
@@ -100,7 +123,8 @@ class CreateEventViewState extends State<CreateEventView> {
             _field(_name, 'Nombre del evento', required: true),
             _field(_description, 'Descripción', maxLines: 3),
             _addressField(),
-            _field(_imageUrl, 'URL de imagen'),
+            _imageField(),
+            _field(_imageUrl, 'URL de imagen (alternativa)'),
             _field(
               _eventUrl,
               'Página del evento (opcional)',
@@ -108,7 +132,8 @@ class CreateEventViewState extends State<CreateEventView> {
               validator: _validateOptionalUrl,
             ),
             _eventTypeField(),
-            _field(_organizer, 'Organizador'),
+            if (!_loadingCreator && _creator?.userType == 1)
+              _field(_organizer, 'Organizador', required: true),
             const SizedBox(height: 14),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -241,6 +266,96 @@ class CreateEventViewState extends State<CreateEventView> {
         ],
       ),
     );
+  }
+
+  Widget _imageField() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          OutlinedButton.icon(
+            onPressed: _pickJpgImage,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.white,
+              minimumSize: const Size.fromHeight(52),
+              side: const BorderSide(color: Colors.white24),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            icon: const Icon(CupertinoIcons.photo),
+            label: Text(
+              _selectedImageName == null
+                  ? 'Agregar imagen JPG'
+                  : 'Cambiar imagen JPG',
+            ),
+          ),
+          if (_selectedImageBytes != null) ...[
+            const SizedBox(height: 10),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.memory(
+                _selectedImageBytes!,
+                height: 180,
+                width: double.infinity,
+                fit: BoxFit.cover,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    _selectedImageName ?? '',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Colors.white60, fontSize: 12),
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => setState(() {
+                    _selectedImageBytes = null;
+                    _selectedImageName = null;
+                  }),
+                  icon: const Icon(
+                    CupertinoIcons.clear_circled,
+                    color: Colors.white70,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Future<void> _pickJpgImage() async {
+    final picked = await _imagePicker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 85,
+      maxWidth: 1600,
+      maxHeight: 1600,
+    );
+    if (picked == null || !mounted) return;
+
+    final name = picked.name.toLowerCase();
+    if (!name.endsWith('.jpg') && !name.endsWith('.jpeg')) {
+      _showMessage('Selecciona una imagen en formato JPG.');
+      return;
+    }
+
+    final bytes = await picked.readAsBytes();
+    if (bytes.lengthInBytes > 2 * 1024 * 1024) {
+      _showMessage('La imagen JPG no puede superar 2 MB.');
+      return;
+    }
+
+    setState(() {
+      _selectedImageBytes = bytes;
+      _selectedImageName = picked.name;
+    });
   }
 
   void _searchAddresses(String value) {
@@ -437,17 +552,24 @@ class CreateEventViewState extends State<CreateEventView> {
     }
     setState(() => _saving = true);
     try {
+      final creator = await AuthService.getSavedUser();
+      final organizerName = creator?.userType == 1
+          ? _organizer.text
+          : (creator?.name ?? '');
       await CreateEventService.createEvent(
         nombre: _name.text,
         descripcion: _description.text,
         direccion: _address.text,
-        imagenUrl: _imageUrl.text,
+        imagenUrl: _selectedImageBytes != null
+            ? 'data:image/jpeg;base64,${base64Encode(_selectedImageBytes!)}'
+            : _imageUrl.text,
         eventUrl: _eventUrl.text,
         comuna: _comuna.text,
         tipoEvento: _type.text,
         latitud: double.tryParse(_latitude.text.trim()),
         longitud: double.tryParse(_longitude.text.trim()),
-        organizador: _organizer.text,
+        organizador: organizerName,
+        creatorId: creator?.id,
         fechas: _dates
             .map(
               (date) => EventDateInput(
@@ -460,6 +582,7 @@ class CreateEventViewState extends State<CreateEventView> {
       );
       if (!mounted) return;
       _showMessage('Evento creado correctamente.');
+      await Webservice.refreshEvents();
       _formKey.currentState!.reset();
       for (final controller in [
         _name,
@@ -475,6 +598,10 @@ class CreateEventViewState extends State<CreateEventView> {
       ]) {
         controller.clear();
       }
+      setState(() {
+        _selectedImageBytes = null;
+        _selectedImageName = null;
+      });
     } catch (error) {
       if (mounted) {
         _showMessage(error.toString().replaceFirst('Exception: ', ''));

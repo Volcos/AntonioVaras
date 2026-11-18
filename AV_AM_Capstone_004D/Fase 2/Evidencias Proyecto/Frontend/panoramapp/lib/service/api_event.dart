@@ -11,6 +11,7 @@ class ApiEvent {
   String imagen;
   String fuenteInfo;
   String organizador;
+  String? creatorId;
 
   ApiEvent({
     this.id = '',
@@ -25,6 +26,7 @@ class ApiEvent {
     required this.imagen,
     required this.fuenteInfo,
     required this.organizador,
+    this.creatorId,
   });
 
   static ApiEvent objJson(Map<String, dynamic> json) {
@@ -41,6 +43,9 @@ class ApiEvent {
       imagen: json['imagen'] ?? '',
       fuenteInfo: json['fuente_info'] ?? json['fuenteInfo'] ?? '',
       organizador: json['organizador'] ?? '',
+      creatorId: json['id_usuario_creador']?.toString() ??
+          json['creador_id']?.toString() ??
+          json['id_usuario']?.toString(),
     );
   }
 }

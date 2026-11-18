@@ -1,4 +1,6 @@
 import 'dart:ui';
+import 'dart:typed_data';
+import 'package:capstone/service/image_cache.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -73,19 +75,41 @@ class SavedEventsView extends StatelessWidget {
             Positioned.fill(
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(35),
-                child: CachedNetworkImage(
-                  imageUrl: event.imagen.isNotEmpty
-                      ? event.imagen
-                      : 'https://images.unsplash.com/photo-1549834125-82d3c48159a3?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
-                  fit: BoxFit.cover,
-                  memCacheWidth: 800,
-                  memCacheHeight: 640,
-                  maxWidthDiskCache: 800,
-                  maxHeightDiskCache: 640,
-                  placeholder: (context, url) =>
-                      const ColoredBox(color: Color(0xFF202020)),
-                  errorWidget: (context, url, error) => const SizedBox.shrink(),
-                ),
+                child: event.imagen.startsWith('data:image/')
+                    ? FutureBuilder<Uint8List?>(
+                        future: Base64ImageCache.decodeBase64Async(
+                          event.imagen,
+                        ),
+                        builder: (context, snapshot) {
+                          final bytes = snapshot.data;
+                          return bytes == null
+                              ? const ColoredBox(
+                                  color: Color(0xFF202020),
+                                )
+                              : Image.memory(
+                                  bytes,
+                                  fit: BoxFit.cover,
+                                  cacheWidth: 800,
+                                  cacheHeight: 640,
+                                  gaplessPlayback: true,
+                                  filterQuality: FilterQuality.low,
+                                );
+                        },
+                      )
+                    : CachedNetworkImage(
+                        imageUrl: event.imagen.isNotEmpty
+                            ? event.imagen
+                            : 'https://images.unsplash.com/photo-1549834125-82d3c48159a3?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+                        fit: BoxFit.cover,
+                        memCacheWidth: 800,
+                        memCacheHeight: 640,
+                        maxWidthDiskCache: 800,
+                        maxHeightDiskCache: 640,
+                        placeholder: (context, url) =>
+                            const ColoredBox(color: Color(0xFF202020)),
+                        errorWidget: (context, url, error) =>
+                            const SizedBox.shrink(),
+                      ),
               ),
             ),
             Positioned.fill(
@@ -149,7 +173,7 @@ class SavedEventsView extends StatelessWidget {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(25),
                 child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                  filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
                   child: Container(
                     padding: const EdgeInsets.all(15),
                     decoration: BoxDecoration(
