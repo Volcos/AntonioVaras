@@ -6,6 +6,7 @@ import statusDB from "./App/status.js";
 import dbConnector from "./plugins/db.js"
 import eventos from './App/getAllEvents.js';
 import crearEvento from './App/createEvent.js';
+import eliminarEvento from './App/deleteEvent.js';
 import tiposEvento from './App/getEventTypes.js';
 import crearUsuario from './User/createUser.js';
 import eliminarUsuario from './User/deleteUser.js';
@@ -52,6 +53,7 @@ const start = async() => {
         await app.register(eventos);
         // ej: /eventos/cercanos?lat=-33.43&lng=-70.65
         await app.register(crearEvento);
+        await app.register(eliminarEvento);
         await app.register(tiposEvento);
         await app.register(fastifyMultipart, {
             limits: {
