@@ -156,3 +156,24 @@ test('rechaza una función con fecha inválida o precio negativo', async () => {
     await app.close();
   }
 });
+
+test('rechaza referencias de imágenes que no sean URLs', async () => {
+  const { app, consultas } = await crearServidor();
+  try {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/eventos',
+      payload: {
+        ...eventoValido,
+        imagen_url: '#attachment:Pasted text #1'
+      }
+    });
+
+    assert.equal(response.statusCode, 400);
+    assert.equal(response.json().success, false);
+    assert.match(response.json().message, /URL válida/);
+    assert.equal(consultas.length, 0);
+  } finally {
+    await app.close();
+  }
+});

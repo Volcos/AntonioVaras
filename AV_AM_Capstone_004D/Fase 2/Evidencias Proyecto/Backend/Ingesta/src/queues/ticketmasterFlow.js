@@ -4,23 +4,12 @@ import {
   buscarEventosTicketmaster,
   obtenerDetalleEventoTM
 } from '../APIs/ticketmaster.js';
-
-const MACRO_CATEGORIAS = ['Música', 'Deportes', 'Teatro', 'Familia'];
+import { resolverIdTipoEvento } from '../utils/categoryNormalizer.js';
 
 export function resolverMacroCategoriaTicketmaster(clasificaciones = []) {
-  if (!Array.isArray(clasificaciones)) {
-    return null;
-  }
-
-  const macroCategorias = [
-    ...new Set(
-      clasificaciones
-        .map(clasificacion => clasificacion?.macro_categoria)
-        .filter(macroCategoria => MACRO_CATEGORIAS.includes(macroCategoria))
-    )
-  ];
-
-  return macroCategorias.length === 1 ? macroCategorias[0] : null;
+  return resolverIdTipoEvento({
+    clasificaciones_fuente: Array.isArray(clasificaciones) ? clasificaciones : []
+  });
 }
 
 async function resolverIdFuente(nombreFuente) {
@@ -38,26 +27,6 @@ async function resolverIdFuente(nombreFuente) {
   return resultado.rows[0].id_fuente;
 }
 
-async function resolverIdsTiposEvento() {
-  const resultado = await pool.query(
-    `SELECT id_tipo_evento, nombre_tipo_evento
-     FROM public.tipo_evento
-     WHERE nombre_tipo_evento = ANY($1::text[]);`,
-    [MACRO_CATEGORIAS]
-  );
-  if (
-    resultado.rows.length !== MACRO_CATEGORIAS.length ||
-    new Set(resultado.rows.map(row => row.nombre_tipo_evento)).size !== MACRO_CATEGORIAS.length
-  ) {
-    throw new Error(
-      `No se encontraron exactamente las macro-categorías esperadas: ${MACRO_CATEGORIAS.join(', ')}.`
-    );
-  }
-  return new Map(
-    resultado.rows.map(row => [row.nombre_tipo_evento, row.id_tipo_evento])
-  );
-}
-
 export async function ejecutarIngestaTicketmaster({
   countryCode = process.env.TICKETMASTER_COUNTRY_CODE || 'CL',
   limite = Number(process.env.TICKETMASTER_EVENT_LIMIT || 200)
@@ -65,9 +34,8 @@ export async function ejecutarIngestaTicketmaster({
   console.log(`[TM Job] Consultando catálogo de Ticketmaster (${countryCode})...`);
 
   const nombreFuente = process.env.TICKETMASTER_SOURCE_NAME || 'ticketmaster';
-  const [idFuente, idsTiposEvento, idsEventos] = await Promise.all([
+  const [idFuente, idsEventos] = await Promise.all([
     resolverIdFuente(nombreFuente),
-    resolverIdsTiposEvento(),
     buscarEventosTicketmaster(countryCode, limite)
   ]);
 
@@ -85,15 +53,12 @@ export async function ejecutarIngestaTicketmaster({
     let evento;
     try {
       evento = await obtenerDetalleEventoTM(idExterno);
-      const macroCategoria = resolverMacroCategoriaTicketmaster(
-        evento.clasificaciones_fuente
-      );
-      if (!macroCategoria) {
-        omitidos += 1;
+      const idTipoEvento = resolverIdTipoEvento(evento);
+      if (idTipoEvento === 6) {
         console.warn(
-          `[TM OMITIDO] "${evento.nombre || idExterno}": clasificación sin macro-categoría única.`
+          `[TM CATEGORIA ESPECIALES] "${evento.nombre || idExterno}": ` +
+          `clasificación original: ${JSON.stringify(evento.clasificaciones_fuente || [])}`
         );
-        continue;
       }
 
       if (!evento.fecha_inicio || !evento.comuna || !evento.id_externo || !evento.nombre) {
@@ -112,11 +77,11 @@ export async function ejecutarIngestaTicketmaster({
       const resultado = await guardarEvento({
         ...evento,
         id_fuente: idFuente,
-        id_tipo_evento: idsTiposEvento.get(macroCategoria)
+        id_tipo_evento: idTipoEvento
       });
       resultados.push(resultado);
       console.log(
-        `[TM ${resultado.accion}] "${evento.nombre}" [${macroCategoria}] ` +
+        `[TM ${resultado.accion}] "${evento.nombre}" [tipo=${idTipoEvento}] ` +
         `(ID: ${resultado.id_evento})`
       );
     } catch (error) {

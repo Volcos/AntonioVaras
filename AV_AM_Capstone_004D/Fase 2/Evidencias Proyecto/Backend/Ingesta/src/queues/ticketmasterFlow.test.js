@@ -5,7 +5,7 @@ import { resolverMacroCategoriaTicketmaster } from './ticketmasterFlow.js';
 test('resuelve una macro-categoría única de Ticketmaster', () => {
   assert.equal(
     resolverMacroCategoriaTicketmaster([{ macro_categoria: 'Música' }]),
-    'Música'
+    1
   );
 });
 
@@ -15,22 +15,22 @@ test('deduplica la misma macro-categoría', () => {
       { macro_categoria: 'Deportes' },
       { macro_categoria: 'Deportes' }
     ]),
-    'Deportes'
+    3
   );
 });
 
-test('rechaza clasificaciones ausentes, ambiguas o desconocidas', () => {
-  assert.equal(resolverMacroCategoriaTicketmaster(), null);
-  assert.equal(resolverMacroCategoriaTicketmaster([]), null);
+test('usa el fallback especial para clasificaciones ausentes o ambiguas', () => {
+  assert.equal(resolverMacroCategoriaTicketmaster(), 6);
+  assert.equal(resolverMacroCategoriaTicketmaster([]), 6);
   assert.equal(
     resolverMacroCategoriaTicketmaster([
       { macro_categoria: 'Música' },
       { macro_categoria: 'Teatro' }
     ]),
-    null
+    1
   );
   assert.equal(
     resolverMacroCategoriaTicketmaster([{ macro_categoria: 'Festival' }]),
-    null
+    1
   );
 });

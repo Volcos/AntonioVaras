@@ -1,4 +1,17 @@
 const fechaDateTime = { type: 'string', format: 'date-time' };
+
+function esUrlImagenValida(valor) {
+  if (valor === null || valor === undefined) return true;
+  if (typeof valor !== 'string') return false;
+
+  try {
+    const url = new URL(valor);
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 const fechaEventoSchema = {
   type: 'object',
   required: ['fecha_inicio'],
@@ -27,7 +40,7 @@ const crearEventoSchema = {
       direccion: { type: 'string', minLength: 5, maxLength: 200 },
       imagen_url: {
         anyOf: [
-          { type: 'string', format: 'uri' },
+          { type: 'string' },
           { type: 'null' }
         ]
       },
@@ -77,6 +90,13 @@ export default async function crearEvento(fastify) {
     const datos = request.body;
 
     try {
+      if (!esUrlImagenValida(datos.imagen_url)) {
+        return reply.code(400).send({
+          success: false,
+          message: 'La imagen_url debe ser una URL válida.'
+        });
+      }
+
       const [comunas, tiposEvento] = await Promise.all([
         fastify.sql`
           SELECT id_comuna, nombre_comuna

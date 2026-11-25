@@ -64,7 +64,7 @@ test('usa la fecha local y el huso horario si falta dateTime', () => {
   assert.equal(evento.fecha_inicio, '2027-02-28T21:00:00-03:00');
 });
 
-test('no inventa macro-categoría para clasificaciones ambiguas', () => {
+test('conserva Arts & Theatre para que el normalizador central lo resuelva', () => {
   const evento = normalizarEventoTicketmaster({
     id: 'TM125',
     name: 'Evento cultural',
@@ -73,7 +73,9 @@ test('no inventa macro-categoría para clasificaciones ambiguas', () => {
     ]
   });
 
-  assert.deepEqual(evento.clasificaciones_fuente, []);
+  assert.deepEqual(evento.clasificaciones_fuente, [
+    { macro_categoria: 'Arts & Theatre', subcategoria: 'Comedy' }
+  ]);
 });
 
 test('clasifica en Familia cuando Ticketmaster lo especifica en family', () => {

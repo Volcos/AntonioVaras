@@ -35,6 +35,20 @@ test('acepta fecha_termino nula y continúa con las demás validaciones', async 
   );
 });
 
+test('acepta el tipo especial id_tipo_evento = 6', async () => {
+  await assert.rejects(
+    guardarEvento({
+      fecha_inicio: '2026-11-08T15:00:00-03:00',
+      fecha_termino: null,
+      id_tipo_evento: 6
+    }),
+    {
+      name: 'TypeError',
+      message: 'El evento requiere id_comuna o un nombre de comuna.'
+    }
+  );
+});
+
 test('actualiza el tipo del evento al sincronizar una fuente ya existente', async () => {
   const consultas = [];
   const client = {

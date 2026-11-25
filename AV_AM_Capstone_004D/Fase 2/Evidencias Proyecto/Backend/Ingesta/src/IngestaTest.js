@@ -1,8 +1,7 @@
 import { guardarEvento } from './DBConnection/guardarEvento.js';
 import pool from './DBConnection/neon_connection.js';
 import { ejecutarScraperPuntoTicket } from './scrapers/puntoticket.js';
-
-const MACRO_CATEGORIAS = ['Música', 'Deportes', 'Teatro', 'Familia'];
+import { resolverIdTipoEvento } from './utils/categoryNormalizer.js';
 
 async function resolverIdFuente(nombreFuente) {
   const resultado = await pool.query(
@@ -19,42 +18,11 @@ async function resolverIdFuente(nombreFuente) {
   return resultado.rows[0].id_fuente;
 }
 
-async function resolverIdsTiposEvento() {
-  const resultado = await pool.query(
-    `SELECT id_tipo_evento, nombre_tipo_evento
-     FROM public.tipo_evento
-     WHERE nombre_tipo_evento = ANY($1::text[]);`,
-    [MACRO_CATEGORIAS]
-  );
-  if (resultado.rows.length !== MACRO_CATEGORIAS.length) {
-    throw new Error(
-      `Se esperaban las ${MACRO_CATEGORIAS.length} macro-categorías (${MACRO_CATEGORIAS.join(', ')}), ` +
-      `pero se encontraron ${resultado.rows.length}.`
-    );
-  }
-  return new Map(
-    resultado.rows.map(row => [row.nombre_tipo_evento, row.id_tipo_evento])
-  );
-}
-
-function obtenerMacroCategoria(evento) {
-  const macroCategorias = [
-    ...new Set(
-      (evento.clasificaciones_fuente || [])
-        .map(clasificacion => clasificacion.macro_categoria)
-        .filter(macroCategoria => MACRO_CATEGORIAS.includes(macroCategoria))
-    )
-  ];
-
-  return macroCategorias.length === 1 ? macroCategorias[0] : null;
-}
-
 async function probarCarga() {
   try {
     const nombreFuente = process.env.PUNTOTICKET_SOURCE_NAME || 'puntoticket';
-    const [idFuente, idsTiposEvento] = await Promise.all([
+    const [idFuente] = await Promise.all([
       resolverIdFuente(nombreFuente),
-      resolverIdsTiposEvento()
     ]);
 
     const eventos = await ejecutarScraperPuntoTicket({ guardarArchivo: false });
@@ -68,13 +36,12 @@ async function probarCarga() {
     const errores = [];
 
     for (const ev of eventos) {
-      const macroCategoria = obtenerMacroCategoria(ev);
-      if (!macroCategoria) {
-        omitidos += 1;
+      const idTipoEvento = resolverIdTipoEvento(ev);
+      if (idTipoEvento === 6) {
         console.warn(
-          `[OMITIDO] "${ev.nombre}": no tiene una macro-categoría única reconocida.`
+          `[CATEGORIA ESPECIALES] "${ev.nombre}": clasificación original: ` +
+          `${JSON.stringify(ev.clasificaciones_fuente || [])}`
         );
-        continue;
       }
 
       if (!ev.id_externo) {
@@ -91,12 +58,12 @@ async function probarCarga() {
           ...ev,
           id_fuente: idFuente,
           id_externo: ev.id_externo,
-          id_tipo_evento: idsTiposEvento.get(macroCategoria)
+          id_tipo_evento: idTipoEvento
         });
 
         guardados += 1;
         console.log(
-          `[OK] "${ev.nombre}" [${macroCategoria}] -> ${resultado.accion} ` +
+          `[OK] "${ev.nombre}" [tipo=${idTipoEvento}] -> ${resultado.accion} ` +
           `(ID Evento: ${resultado.id_evento})`
         );
       } catch (error) {
@@ -107,7 +74,7 @@ async function probarCarga() {
 
     console.log(
       `\nCarga terminada: ${guardados}/${eventos.length} eventos procesados, ` +
-      `${omitidos} omitidos por falta de macro-categoría única.`
+      `${omitidos} omitidos y ${errores.length} errores.`
     );
     if (errores.length > 0) {
       console.error(`Fallaron ${errores.length} eventos.`);

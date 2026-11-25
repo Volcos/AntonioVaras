@@ -81,6 +81,21 @@ export function normalizarEventoTicketmaster(evento) {
         .filter(Boolean)
     )
   ];
+  const clasificacionesFuente = macroCategorias.map(macro_categoria => ({ macro_categoria }));
+  if (clasificacionesFuente.length === 0) {
+    for (const clasificacion of clasificaciones) {
+      const segmento = clasificacion?.segment?.name?.trim();
+      const subcategoria =
+        clasificacion?.genre?.name?.trim() ||
+        clasificacion?.type?.name?.trim();
+      if (segmento) {
+        clasificacionesFuente.push({
+          macro_categoria: segmento,
+          ...(subcategoria ? { subcategoria } : {})
+        });
+      }
+    }
+  }
   const lineasDireccion = [
     recinto.name,
     recinto.address?.line1,
@@ -105,7 +120,7 @@ export function normalizarEventoTicketmaster(evento) {
     latitud: obtenerCoordenada(recinto.location?.latitude),
     longitud: obtenerCoordenada(recinto.location?.longitude),
     organizador: evento.promoters?.[0]?.name || evento.promoter?.name || null,
-    clasificaciones_fuente: macroCategorias.map(macro_categoria => ({ macro_categoria }))
+    clasificaciones_fuente: clasificacionesFuente
   };
 }
 

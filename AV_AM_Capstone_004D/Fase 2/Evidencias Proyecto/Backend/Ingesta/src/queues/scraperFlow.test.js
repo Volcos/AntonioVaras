@@ -7,7 +7,7 @@ test('resuelve una macro-categoría única reconocida', () => {
     resolverMacroCategoriaPuntoTicket([
       { macro_categoria: 'Música', etiqueta: 'Rock' }
     ]),
-    'Música'
+    1
   );
 });
 
@@ -18,22 +18,22 @@ test('deduplica clasificaciones iguales y no considera etiquetas de tarjeta', ()
       { macro_categoria: 'Deportes', etiqueta: 'Fútbol' },
       { etiqueta: 'Fútbol' }
     ]),
-    'Deportes'
+    3
   );
 });
 
-test('rechaza clasificaciones ausentes, ambiguas o fuera de las macro-categorías', () => {
-  assert.equal(resolverMacroCategoriaPuntoTicket(), null);
-  assert.equal(resolverMacroCategoriaPuntoTicket([{ etiqueta: 'Festival' }]), null);
+test('usa el fallback especial para clasificaciones ausentes o ambiguas', () => {
+  assert.equal(resolverMacroCategoriaPuntoTicket(), 6);
+  assert.equal(resolverMacroCategoriaPuntoTicket([{ etiqueta: 'Festival' }]), 6);
   assert.equal(
     resolverMacroCategoriaPuntoTicket([
       { macro_categoria: 'Música' },
       { macro_categoria: 'Teatro' }
     ]),
-    null
+    1
   );
   assert.equal(
     resolverMacroCategoriaPuntoTicket([{ macro_categoria: 'Especiales' }]),
-    null
+    6
   );
 });

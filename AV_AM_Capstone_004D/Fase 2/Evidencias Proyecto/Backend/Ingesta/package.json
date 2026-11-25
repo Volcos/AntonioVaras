@@ -5,7 +5,8 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "test": "node --test src/APIs/ticketmaster.test.js src/scrapers/puntoticket.test.js src/queues/scraperFlow.test.js src/queues/ticketmasterFlow.test.js src/DBConnection/guardarEvento.test.js"
+    "start": "xvfb-run --auto-servernum --server-args=-screen 0 1280x1024x24 node index.js",
+    "test": "node --test src/APIs/ticketmaster.test.js src/scrapers/puntoticket.test.js src/queues/scraperFlow.test.js src/queues/ticketmasterFlow.test.js src/DBConnection/guardarEvento.test.js src/utils/categoryNormalizer.test.js"
   },
   "keywords": [],
   "author": "",

@@ -1,23 +1,12 @@
 import pool from '../DBConnection/neon_connection.js';
 import { guardarEvento } from '../DBConnection/guardarEvento.js';
 import { ejecutarScraperPuntoTicket } from '../scrapers/puntoticket.js';
-
-const MACRO_CATEGORIAS = ['Música', 'Deportes', 'Teatro', 'Familia'];
+import { resolverIdTipoEvento } from '../utils/categoryNormalizer.js';
 
 export function resolverMacroCategoriaPuntoTicket(clasificaciones = []) {
-  if (!Array.isArray(clasificaciones)) {
-    return null;
-  }
-
-  const macroCategorias = [
-    ...new Set(
-      clasificaciones
-        .map(clasificacion => clasificacion?.macro_categoria)
-        .filter(macroCategoria => MACRO_CATEGORIAS.includes(macroCategoria))
-    )
-  ];
-
-  return macroCategorias.length === 1 ? macroCategorias[0] : null;
+  return resolverIdTipoEvento({
+    clasificaciones_fuente: Array.isArray(clasificaciones) ? clasificaciones : []
+  });
 }
 
 async function resolverIdFuente(nombreFuente) {
@@ -35,33 +24,12 @@ async function resolverIdFuente(nombreFuente) {
   return resultado.rows[0].id_fuente;
 }
 
-async function resolverIdsTiposEvento() {
-  const resultado = await pool.query(
-    `SELECT id_tipo_evento, nombre_tipo_evento
-     FROM public.tipo_evento
-     WHERE nombre_tipo_evento = ANY($1::text[]);`,
-    [MACRO_CATEGORIAS]
-  );
-  if (
-    resultado.rows.length !== MACRO_CATEGORIAS.length ||
-    new Set(resultado.rows.map(row => row.nombre_tipo_evento)).size !== MACRO_CATEGORIAS.length
-  ) {
-    throw new Error(
-      `No se encontraron exactamente las macro-categorías esperadas: ${MACRO_CATEGORIAS.join(', ')}.`
-    );
-  }
-  return new Map(
-    resultado.rows.map(row => [row.nombre_tipo_evento, row.id_tipo_evento])
-  );
-}
-
 export async function dispararFlujoScraping() {
   console.log('Iniciando extracción y procesamiento de PuntoTicket...');
 
   const nombreFuente = process.env.PUNTOTICKET_SOURCE_NAME || 'puntoticket';
-  const [idFuente, idsTiposEvento, eventosExtraidos] = await Promise.all([
+  const [idFuente, eventosExtraidos] = await Promise.all([
     resolverIdFuente(nombreFuente),
-    resolverIdsTiposEvento(),
     ejecutarScraperPuntoTicket({ guardarArchivo: false })
   ]);
 
@@ -76,15 +44,12 @@ export async function dispararFlujoScraping() {
   const errores = [];
 
   for (const evento of eventosExtraidos) {
-    const macroCategoria = resolverMacroCategoriaPuntoTicket(
-      evento.clasificaciones_fuente
-    );
-    if (!macroCategoria) {
-      omitidos += 1;
+    const idTipoEvento = resolverIdTipoEvento(evento);
+    if (idTipoEvento === 6) {
       console.warn(
-        `[OMITIDO] "${evento.nombre}": no tiene una macro-categoría única reconocida.`
+        `[CATEGORIA ESPECIALES] "${evento.nombre}": clasificación original: ` +
+        `${JSON.stringify(evento.clasificaciones_fuente || [])}`
       );
-      continue;
     }
 
     if (!evento.fecha_inicio || !evento.comuna || !evento.id_externo) {
@@ -103,11 +68,11 @@ export async function dispararFlujoScraping() {
       const resultado = await guardarEvento({
         ...evento,
         id_fuente: idFuente,
-        id_tipo_evento: idsTiposEvento.get(macroCategoria)
+        id_tipo_evento: idTipoEvento
       });
       resultados.push(resultado);
       console.log(
-        `[${resultado.accion}] "${evento.nombre}" [${macroCategoria}] ` +
+        `[${resultado.accion}] "${evento.nombre}" [tipo=${idTipoEvento}] ` +
         `(ID: ${resultado.id_evento})`
       );
     } catch (error) {
