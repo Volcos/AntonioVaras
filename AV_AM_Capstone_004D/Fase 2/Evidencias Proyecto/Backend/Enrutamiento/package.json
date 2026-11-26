@@ -5,7 +5,7 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "test": "node --test src/App/createEvent.test.js src/App/deleteEvent.test.js src/User/passwordAuth.test.js src/User/getUserById.test.js src/User/deleteUser.test.js src/routes/notificaciones.test.js",
+    "test": "node --test src/App/createEvent.test.js src/App/getEventById.test.js src/App/updateEvent.test.js src/App/deleteEvent.test.js src/User/passwordAuth.test.js src/User/getUserById.test.js src/User/deleteUser.test.js src/routes/notificaciones.test.js",
     "start": "node Enrutamiento/src/index.js"
   },
   "keywords": [],
