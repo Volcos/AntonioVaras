@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:capstone/views/Home.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:capstone/service/notification_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
+  await NotificationService().init();
   runApp(const MyApp(initialHome: Home()));
 
   Future<void> hideNavigationBar() async {

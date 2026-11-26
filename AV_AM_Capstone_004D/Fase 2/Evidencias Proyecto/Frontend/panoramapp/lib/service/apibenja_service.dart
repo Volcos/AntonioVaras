@@ -9,49 +9,57 @@ class ApibenjaService {
 
   static Future<List<ApiEvent>> getEvents() async {
     for (final url in _urls) {
-      try {
-        final rspta = await http
-            .get(
-              Uri.parse(url),
-              headers: {'Accept': 'application/json'},
-            )
-            .timeout(const Duration(seconds: 7));
+      int attempts = 0;
+      while (attempts < 2) {
+        attempts++;
+        try {
+          final rspta = await http
+              .get(
+                Uri.parse(url),
+                headers: {'Accept': 'application/json'},
+              )
+              .timeout(const Duration(seconds: 25));
 
-        if (rspta.statusCode == 200) {
-          final dynamic rsptaJson = jsonDecode(rspta.body);
-          List<dynamic> eventsJson = [];
+          if (rspta.statusCode == 200) {
+            final dynamic rsptaJson = jsonDecode(rspta.body);
+            List<dynamic> eventsJson = [];
 
-          if (rsptaJson is List) {
-            eventsJson = rsptaJson;
-          } else if (rsptaJson is Map<String, dynamic>) {
-            if (rsptaJson['value'] is List) {
-              eventsJson = rsptaJson['value'];
-            } else if (rsptaJson['eventos'] is List) {
-              eventsJson = rsptaJson['eventos'];
-            } else if (rsptaJson['events'] is List) {
-              eventsJson = rsptaJson['events'];
-            } else if (rsptaJson['data'] is List) {
-              eventsJson = rsptaJson['data'];
-            } else if (rsptaJson['items'] is List) {
-              eventsJson = rsptaJson['items'];
-            } else if (rsptaJson['results'] is List) {
-              eventsJson = rsptaJson['results'];
-            } else if (rsptaJson['_embedded'] != null &&
-                rsptaJson['_embedded']['events'] is List) {
-              eventsJson = rsptaJson['_embedded']['events'];
+            if (rsptaJson is List) {
+              eventsJson = rsptaJson;
+            } else if (rsptaJson is Map<String, dynamic>) {
+              if (rsptaJson['value'] is List) {
+                eventsJson = rsptaJson['value'];
+              } else if (rsptaJson['eventos'] is List) {
+                eventsJson = rsptaJson['eventos'];
+              } else if (rsptaJson['events'] is List) {
+                eventsJson = rsptaJson['events'];
+              } else if (rsptaJson['data'] is List) {
+                eventsJson = rsptaJson['data'];
+              } else if (rsptaJson['items'] is List) {
+                eventsJson = rsptaJson['items'];
+              } else if (rsptaJson['results'] is List) {
+                eventsJson = rsptaJson['results'];
+              } else if (rsptaJson['_embedded'] != null &&
+                  rsptaJson['_embedded']['events'] is List) {
+                eventsJson = rsptaJson['_embedded']['events'];
+              }
             }
-          }
 
-          print('Eventos obtenidos desde API Benja ($url): ${eventsJson.length}');
-          return eventsJson
-              .whereType<Map<String, dynamic>>()
-              .map((e) => _mapToApiEvent(e))
-              .toList();
-        } else {
-          print('Error en la API Benja ($url): ${rspta.statusCode}');
+            print('Eventos obtenidos desde API Benja ($url): ${eventsJson.length}');
+            return eventsJson
+                .whereType<Map<String, dynamic>>()
+                .map((e) => _mapToApiEvent(e))
+                .toList();
+          } else {
+            print('Error en la API Benja ($url): ${rspta.statusCode}');
+            break;
+          }
+        } catch (e) {
+          print('Excepción al consumir API Benja ($url) [Intento $attempts/2]: $e');
+          if (attempts >= 2) break;
+          // Espera breve antes de reintentar si el servidor estaba encendiendo (Cold Start)
+          await Future.delayed(const Duration(milliseconds: 500));
         }
-      } catch (e) {
-        print('Excepción al consumir API Benja ($url): $e');
       }
     }
 

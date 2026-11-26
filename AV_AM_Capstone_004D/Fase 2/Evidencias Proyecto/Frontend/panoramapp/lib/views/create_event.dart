@@ -10,6 +10,7 @@ import 'package:capstone/service/create_event_service.dart';
 import 'package:capstone/service/location_service.dart';
 import 'package:capstone/service/web_service.dart';
 import 'package:capstone/service/auth_service.dart';
+import 'package:capstone/service/notification_service.dart';
 
 class CreateEventView extends StatefulWidget {
   const CreateEventView({super.key});
@@ -582,6 +583,21 @@ class CreateEventViewState extends State<CreateEventView> {
       );
       if (!mounted) return;
       _showMessage('Evento creado correctamente.');
+      
+      // Enviar notificación de evento creado y programar la de finalización
+      final eventName = _name.text.trim();
+      NotificationService().showEventCreatedNotification(eventName: eventName);
+      
+      for (final date in _dates) {
+        if (date.end != null && date.end!.isAfter(DateTime.now())) {
+          NotificationService().scheduleEventFinishedNotification(
+            notificationId: date.end!.millisecondsSinceEpoch.remainder(100000),
+            eventName: eventName,
+            finishTime: date.end!,
+          );
+        }
+      }
+
       await Webservice.refreshEvents();
       _formKey.currentState!.reset();
       for (final controller in [
