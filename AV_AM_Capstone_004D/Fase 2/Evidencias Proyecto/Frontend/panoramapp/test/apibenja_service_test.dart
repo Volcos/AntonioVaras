@@ -2,8 +2,18 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:capstone/service/apibenja_service.dart';
 import 'package:capstone/service/api_event.dart';
+import 'package:capstone/service/create_event_service.dart';
 
 void main() {
+  test('event update dates omit backend-generated id_fecha', () {
+    final date = EventDateInput(
+      fechaInicio: DateTime(2026, 11, 27, 11),
+      idFecha: 49,
+    );
+
+    expect(date.toJson().containsKey('id_fecha'), isFalse);
+  });
+
   test('ApibenjaService correctly parses JSON with value wrapper', () {
     const jsonString = '''
     {

@@ -27,8 +27,7 @@ class EventDateInput {
     this.idFecha,
   });
 
-  Map<String, dynamic> toJson({bool includeId = false}) => {
-    if (includeId) 'id_fecha': idFecha,
+  Map<String, dynamic> toJson() => {
     'fecha_inicio': _withOffset(fechaInicio),
     'fecha_termino': fechaTermino == null ? null : _withOffset(fechaTermino!),
     'precio_desde': precioDesde,
@@ -182,7 +181,7 @@ class CreateEventService {
       'latitud': latitud,
       'longitud': longitud,
       'organizador': organizador.trim().isEmpty ? null : organizador.trim(),
-      'fechas': fechas.map((fecha) => fecha.toJson(includeId: true)).toList(),
+      'fechas': fechas.map((fecha) => fecha.toJson()).toList(),
     };
 
     final headers = {

@@ -14,10 +14,19 @@ class Webservice {
       : List<ApiEvent>.from(_cachedEvents!);
 
   static void upsertEvent(ApiEvent event) {
-    if (event.id != null && event.id!.isNotEmpty) {
-      _locallyCreatedEvents[event.id!] = event;
+    final eventId = event.id;
+    if (eventId != null && eventId.isNotEmpty) {
+      _locallyCreatedEvents[eventId] = event;
     }
-    _cachedEvents = _consolidateEvents([...?_cachedEvents, event]);
+
+    final remainingEvents = (_cachedEvents ?? <ApiEvent>[]).where((
+      cachedEvent,
+    ) {
+      if (eventId == null || eventId.isEmpty) return true;
+      return cachedEvent.id != eventId &&
+          !cachedEvent.alternateIds.contains(eventId);
+    }).toList();
+    _cachedEvents = _consolidateEvents([event, ...remainingEvents]);
     eventRevision.value++;
   }
 
@@ -134,23 +143,18 @@ class Webservice {
 
   static List<ApiEvent> _mergeLocallyCreatedEvents(List<ApiEvent> events) {
     final merged = List<ApiEvent>.from(events);
-    final indexedEvents = <String, ApiEvent>{
-      for (final event in merged)
-        if (event.id != null && event.id!.isNotEmpty) event.id!: event,
-    };
 
     for (final localEvent in _locallyCreatedEvents.values) {
       final id = localEvent.id;
       if (id == null || id.isEmpty) continue;
 
-      final remoteEvent = indexedEvents[id];
-      if (remoteEvent == null) {
+      final remoteIndex = merged.indexWhere(
+        (event) => event.id == id || event.alternateIds.contains(id),
+      );
+      if (remoteIndex == -1) {
         merged.add(localEvent);
-      } else if ((remoteEvent.creatorId == null ||
-              remoteEvent.creatorId!.isEmpty) &&
-          localEvent.creatorId != null &&
-          localEvent.creatorId!.isNotEmpty) {
-        remoteEvent.creatorId = localEvent.creatorId;
+      } else {
+        merged[remoteIndex] = localEvent;
       }
     }
 

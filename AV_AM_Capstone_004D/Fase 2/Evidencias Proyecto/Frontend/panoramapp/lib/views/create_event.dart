@@ -947,7 +947,6 @@ class CreateEventViewState extends State<CreateEventView> {
       }
 
       if (widget.eventToEdit != null) {
-        await Webservice.refreshEvents();
         if (mounted) Navigator.of(context).pop(true);
         return;
       }
