@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
@@ -24,6 +25,7 @@ class NotificationService {
   bool nearbyNotificationsEnabled = true;
   bool savedEventsNotificationsEnabled = true;
   double nearbyRadiusKm = 5.0;
+  final ValueNotifier<double> radiusNotifier = ValueNotifier<double>(5.0);
 
   static const String _keyEnabled = 'notif_enabled';
   static const String _keyNewEvents = 'notif_new_events';
@@ -107,6 +109,7 @@ class NotificationService {
     nearbyNotificationsEnabled = prefs.getBool(_keyNearby) ?? true;
     savedEventsNotificationsEnabled = prefs.getBool(_keySaved) ?? true;
     nearbyRadiusKm = prefs.getDouble(_keyRadius) ?? 5.0;
+    radiusNotifier.value = nearbyRadiusKm;
   }
 
   Future<void> setNotificationsEnabled(bool value) async {
@@ -138,6 +141,7 @@ class NotificationService {
 
   Future<void> setNearbyRadiusKm(double radius) async {
     nearbyRadiusKm = radius;
+    radiusNotifier.value = radius;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setDouble(_keyRadius, radius);
   }

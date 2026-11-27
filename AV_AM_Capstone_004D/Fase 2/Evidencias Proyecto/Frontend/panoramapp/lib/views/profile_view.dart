@@ -723,10 +723,10 @@ class _ProfileViewState extends State<ProfileView> {
                         ],
                       ),
                       Slider(
-                        value: NotificationService().nearbyRadiusKm,
+                        value: NotificationService().nearbyRadiusKm.clamp(1.0, 10.0),
                         min: 1.0,
-                        max: 50.0,
-                        divisions: 49,
+                        max: 10.0,
+                        divisions: 9,
                         activeColor: Colors.pinkAccent,
                         inactiveColor: Colors.white24,
                         label:

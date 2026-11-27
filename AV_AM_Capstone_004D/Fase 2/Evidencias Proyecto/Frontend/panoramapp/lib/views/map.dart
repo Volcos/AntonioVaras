@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:async';
+import 'dart:math';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -46,6 +47,7 @@ class _MapViewState extends State<MapView> {
   String? _routeDistance;
   String? _routeDuration;
   Line? _routeLine;
+  Fill? _radiusFill;
   final Map<String, Symbol> _eventSymbols = {};
   final Map<String, ApiEvent> _eventsBySymbolId = {};
 
@@ -53,6 +55,7 @@ class _MapViewState extends State<MapView> {
   void initState() {
     super.initState();
     Webservice.eventRevision.addListener(_onEventsChanged);
+    NotificationService().radiusNotifier.addListener(_onRadiusChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _loadLocationPermission();
@@ -62,11 +65,21 @@ class _MapViewState extends State<MapView> {
 
   @override
   void dispose() {
+    NotificationService().radiusNotifier.removeListener(_onRadiusChanged);
     _mapController?.onSymbolTapped.remove(_onEventSymbolTapped);
     Webservice.eventRevision.removeListener(_onEventsChanged);
     _eventSymbols.clear();
     _eventsBySymbolId.clear();
     super.dispose();
+  }
+
+  void _onRadiusChanged() {
+    final controller = _mapController;
+    if (controller == null || !mounted) return;
+    final center = LocationService.lastKnownLocation ??
+        controller.cameraPosition?.target ??
+        const LatLng(-33.4488897, -70.6692655);
+    unawaited(_updateRadiusCircle(controller, center));
   }
 
   void _onEventsChanged() {
@@ -202,6 +215,10 @@ class _MapViewState extends State<MapView> {
 
   void _onUserLocationUpdated(UserLocation location) {
     LocationService.registrarActualizacion(location);
+    final controller = _mapController;
+    if (controller != null) {
+      unawaited(_updateRadiusCircle(controller, location.position));
+    }
     final events = _eventsBySymbolId.values.toList();
     if (events.isNotEmpty) {
       NotificationService().checkAndNotifyNearbyEvents(
@@ -210,6 +227,52 @@ class _MapViewState extends State<MapView> {
         userLng: location.position.longitude,
       );
     }
+  }
+
+  List<LatLng> _generateCirclePoints(LatLng center, double radiusKm, {int points = 64}) {
+    final List<LatLng> result = [];
+    const double earthRadiusKm = 6371.0;
+    final double latRad = center.latitude * (pi / 180.0);
+    final double lonRad = center.longitude * (pi / 180.0);
+    final double d = radiusKm / earthRadiusKm;
+
+    for (int i = 0; i <= points; i++) {
+      final double brng = 2 * pi * i / points;
+      final double latResultRad = asin(
+        sin(latRad) * cos(d) + cos(latRad) * sin(d) * cos(brng),
+      );
+      final double lonResultRad = lonRad + atan2(
+        sin(brng) * sin(d) * cos(latRad),
+        cos(d) - sin(latRad) * sin(latResultRad),
+      );
+      result.add(
+        LatLng(
+          latResultRad * (180.0 / pi),
+          lonResultRad * (180.0 / pi),
+        ),
+      );
+    }
+    return result;
+  }
+
+  Future<void> _updateRadiusCircle(MapLibreMapController controller, LatLng userLocation) async {
+    final radiusKm = NotificationService().nearbyRadiusKm;
+    final circlePoints = _generateCirclePoints(userLocation, radiusKm);
+
+    try {
+      if (_radiusFill != null) {
+        await controller.removeFill(_radiusFill!);
+        _radiusFill = null;
+      }
+      _radiusFill = await controller.addFill(
+        FillOptions(
+          geometry: [circlePoints],
+          fillColor: '#E91E63',
+          fillOpacity: 0.12,
+          fillOutlineColor: '#E91E63',
+        ),
+      );
+    } catch (_) {}
   }
 
   Future<_EventMarker?> _prepareEventMarker(ApiEvent event, int index) async {
@@ -379,6 +442,11 @@ class _MapViewState extends State<MapView> {
     _eventSymbols.clear();
     _eventsBySymbolId.clear();
     try {
+      final center = LocationService.lastKnownLocation ??
+          controller.cameraPosition?.target ??
+          const LatLng(-33.4488897, -70.6692655);
+      unawaited(_updateRadiusCircle(controller, center));
+
       final destination = await _focusSelectedEvent(controller);
       // 1. Obtenemos todos los eventos usando tu Webservice (el mismo que usa home.dart)
       final eventos = await Webservice.getEvents();
