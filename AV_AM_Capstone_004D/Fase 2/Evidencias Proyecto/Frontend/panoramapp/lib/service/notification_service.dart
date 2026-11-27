@@ -25,13 +25,16 @@ class NotificationService {
   bool nearbyNotificationsEnabled = true;
   bool savedEventsNotificationsEnabled = true;
   double nearbyRadiusKm = 5.0;
+  bool showRadiusCircle = true;
   final ValueNotifier<double> radiusNotifier = ValueNotifier<double>(5.0);
+  final ValueNotifier<bool> showRadiusNotifier = ValueNotifier<bool>(true);
 
   static const String _keyEnabled = 'notif_enabled';
   static const String _keyNewEvents = 'notif_new_events';
   static const String _keyNearby = 'notif_nearby';
   static const String _keySaved = 'notif_saved';
   static const String _keyRadius = 'notif_radius';
+  static const String _keyShowRadius = 'notif_show_radius';
 
   Future<void> init({void Function(String?)? onNotificationTap}) async {
     _onNotificationTap = onNotificationTap ?? _onNotificationTap;
@@ -109,7 +112,9 @@ class NotificationService {
     nearbyNotificationsEnabled = prefs.getBool(_keyNearby) ?? true;
     savedEventsNotificationsEnabled = prefs.getBool(_keySaved) ?? true;
     nearbyRadiusKm = prefs.getDouble(_keyRadius) ?? 5.0;
+    showRadiusCircle = prefs.getBool(_keyShowRadius) ?? true;
     radiusNotifier.value = nearbyRadiusKm;
+    showRadiusNotifier.value = showRadiusCircle;
   }
 
   Future<void> setNotificationsEnabled(bool value) async {
@@ -144,6 +149,13 @@ class NotificationService {
     radiusNotifier.value = radius;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setDouble(_keyRadius, radius);
+  }
+
+  Future<void> setShowRadiusCircle(bool value) async {
+    showRadiusCircle = value;
+    showRadiusNotifier.value = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyShowRadius, value);
   }
 
   // ===========================================================================
