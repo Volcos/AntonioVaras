@@ -83,9 +83,7 @@ class SavedEventsView extends StatelessWidget {
                         builder: (context, snapshot) {
                           final bytes = snapshot.data;
                           return bytes == null
-                              ? const ColoredBox(
-                                  color: Color(0xFF202020),
-                                )
+                              ? const ColoredBox(color: Color(0xFF202020))
                               : Image.memory(
                                   bytes,
                                   fit: BoxFit.cover,
@@ -134,8 +132,30 @@ class SavedEventsView extends StatelessWidget {
                 child: BackdropFilter(
                   filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
                   child: GestureDetector(
-                    onTap: () {
-                      BookmarkManager().toggleBookmark(event);
+                    onTap: () async {
+                      try {
+                        final result = await BookmarkManager().toggleBookmark(
+                          event,
+                        );
+                        if (result.reminderUnavailable && context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Evento guardado localmente, pero falta el ID de fecha para activar el recordatorio.',
+                              ),
+                            ),
+                          );
+                        }
+                      } catch (error) {
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'No se pudo guardar el evento/recordatorio: $error',
+                            ),
+                          ),
+                        );
+                      }
                     },
                     child: Container(
                       padding: const EdgeInsets.all(10),
@@ -216,9 +236,9 @@ class SavedEventsView extends StatelessWidget {
                                             ? event.localizacion
                                             : 'Lugar por confirmar');
                                   return Text(
-                                    event.fechaInicio.contains('\n')
+                                    event.hasMultipleSchedules
                                         ? 'Múltiples Fechas • $location'
-                                        : '${event.fechaInicio} • $location',
+                                        : '${event.displayDate} • $location',
                                     style: const TextStyle(
                                       color: Color(0xB3FFFFFF),
                                       fontSize: 12,

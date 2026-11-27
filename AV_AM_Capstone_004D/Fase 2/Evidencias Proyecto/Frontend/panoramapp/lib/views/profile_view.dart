@@ -5,9 +5,12 @@ import 'package:capstone/service/auth_service.dart';
 import 'package:capstone/service/api_event.dart';
 import 'package:capstone/service/create_event_service.dart';
 import 'package:capstone/service/web_service.dart';
+import 'package:capstone/service/bookmark_manager.dart';
 import 'package:capstone/views/create_event.dart';
 import 'package:capstone/views/event_detail_screen.dart';
 import 'package:capstone/views/login_view.dart';
+import 'package:capstone/service/notification_service.dart';
+import 'package:capstone/service/push_notification_service.dart';
 
 class ProfileView extends StatefulWidget {
   const ProfileView({super.key});
@@ -39,8 +42,7 @@ class _ProfileViewState extends State<ProfileView> {
   }
 
   Future<void> _loadManagedEvents(AuthUser? user) async {
-    if (user == null ||
-        (user.userType != 1 && user.userType != 3)) {
+    if (user == null || (user.userType != 1 && user.userType != 3)) {
       return;
     }
     if (!mounted) return;
@@ -51,12 +53,13 @@ class _ProfileViewState extends State<ProfileView> {
       final managed = user.userType == 1
           ? events
           : events.where((event) {
-              final creatorMatches = event.creatorId != null &&
+              final creatorMatches =
+                  event.creatorId != null &&
                   event.creatorId!.trim().isNotEmpty &&
                   event.creatorId!.trim() == user.id.trim();
               final organizerMatches =
                   event.organizador.trim().toLowerCase() ==
-                      user.name.trim().toLowerCase();
+                  user.name.trim().toLowerCase();
               return creatorMatches || organizerMatches;
             }).toList();
       setState(() {
@@ -101,9 +104,7 @@ class _ProfileViewState extends State<ProfileView> {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            style: FilledButton.styleFrom(
-              backgroundColor: Colors.pinkAccent,
-            ),
+            style: FilledButton.styleFrom(backgroundColor: Colors.pinkAccent),
             child: const Text('Cerrar sesión'),
           ),
         ],
@@ -111,7 +112,24 @@ class _ProfileViewState extends State<ProfileView> {
     );
     if (confirm != true) return;
 
-    await AuthService.logout();
+    try {
+      final token = await AuthService.getToken();
+      if (token != null && token.isNotEmpty) {
+        await PushNotificationService.unregisterDevice(token);
+      }
+      await AuthService.logout();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'No se pudo desvincular el dispositivo. '
+            'La sesión sigue activa: $error',
+          ),
+        ),
+      );
+      return;
+    }
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
       CupertinoPageRoute(builder: (_) => const LoginView()),
@@ -220,12 +238,11 @@ class _ProfileViewState extends State<ProfileView> {
                 icon: CupertinoIcons.add_circled,
                 title: 'Crear evento',
                 subtitle: 'Publicar una nueva experiencia',
-                onTap: () {
-                  Navigator.of(context).push(
-                    CupertinoPageRoute(
-                      builder: (_) => const CreateEventView(),
-                    ),
+                onTap: () async {
+                  await Navigator.of(context).push(
+                    CupertinoPageRoute(builder: (_) => const CreateEventView()),
                   );
+                  await _loadManagedEvents(_user);
                 },
               ),
             if (_user?.userType == 1 || _user?.userType == 3) ...[
@@ -273,9 +290,7 @@ class _ProfileViewState extends State<ProfileView> {
                   ),
                 )
               else
-                ..._managedEvents.map(
-                  (event) => _managedEventCard(event),
-                ),
+                ..._managedEvents.map((event) => _managedEventCard(event)),
             ],
             const SizedBox(height: 12),
             _profileButton(
@@ -347,25 +362,34 @@ class _ProfileViewState extends State<ProfileView> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    event.fechaInicio.replaceAll('\n', ' • '),
+                    event.hasMultipleSchedules
+                        ? 'Múltiples fechas'
+                        : event.displayDate,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white54,
-                      fontSize: 12,
-                    ),
+                    style: const TextStyle(color: Colors.white54, fontSize: 12),
                   ),
                 ],
               ),
             ),
           ),
           IconButton(
+            tooltip: 'Editar',
+            onPressed: () async {
+              await Navigator.push(
+                context,
+                CupertinoPageRoute(
+                  builder: (_) => CreateEventView(eventToEdit: event),
+                ),
+              );
+              await _loadManagedEvents(_user);
+            },
+            icon: const Icon(CupertinoIcons.pencil, color: Colors.amberAccent),
+          ),
+          IconButton(
             tooltip: 'Eliminar',
             onPressed: () => _confirmDeleteEvent(event),
-            icon: const Icon(
-              CupertinoIcons.trash,
-              color: Colors.redAccent,
-            ),
+            icon: const Icon(CupertinoIcons.trash, color: Colors.redAccent),
           ),
         ],
       ),
@@ -392,9 +416,7 @@ class _ProfileViewState extends State<ProfileView> {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            style: FilledButton.styleFrom(
-              backgroundColor: Colors.redAccent,
-            ),
+            style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
             child: const Text('Eliminar'),
           ),
         ],
@@ -406,9 +428,7 @@ class _ProfileViewState extends State<ProfileView> {
     if (token == null || token.isEmpty) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Debes iniciar sesión nuevamente.'),
-        ),
+        const SnackBar(content: Text('Debes iniciar sesión nuevamente.')),
       );
       return;
     }
@@ -418,21 +438,19 @@ class _ProfileViewState extends State<ProfileView> {
         eventId: event.id ?? '',
         token: token,
       );
+      Webservice.removeEventFromCache(event.id);
+      BookmarkManager().removeIfSaved(event);
       await Webservice.refreshEvents();
       await _loadManagedEvents(_user);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Evento eliminado correctamente.'),
-        ),
+        const SnackBar(content: Text('Evento eliminado correctamente.')),
       );
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            error.toString().replaceFirst('Exception: ', ''),
-          ),
+          content: Text(error.toString().replaceFirst('Exception: ', '')),
         ),
       );
     }
@@ -442,38 +460,174 @@ class _ProfileViewState extends State<ProfileView> {
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: const Color(0xFF202020),
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (context) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text(
-                'Ajustes',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                ),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => SafeArea(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+              20,
+              16,
+              20,
+              MediaQuery.of(context).viewInsets.bottom + 20,
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text(
+                    'Ajustes y Notificaciones',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(
+                      CupertinoIcons.person,
+                      color: _user == null ? Colors.white54 : Colors.pinkAccent,
+                    ),
+                    title: Text(
+                      _user == null
+                          ? 'Sesión de invitado'
+                          : 'Cuenta: ${_user!.name}',
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                  ),
+                  const Divider(color: Colors.white12),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Configuración de Notificaciones',
+                    style: TextStyle(
+                      color: Colors.pinkAccent,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text(
+                      'Activar Notificaciones',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                    subtitle: const Text(
+                      'Habilitar o desactivar todas las alertas',
+                      style: TextStyle(color: Colors.white60, fontSize: 12),
+                    ),
+                    value: NotificationService().notificationsEnabled,
+                    activeColor: Colors.pinkAccent,
+                    onChanged: (val) async {
+                      await NotificationService().setNotificationsEnabled(val);
+                      setModalState(() {});
+                      setState(() {});
+                    },
+                  ),
+                  if (NotificationService().notificationsEnabled) ...[
+                    const SizedBox(height: 4),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text(
+                        'Nuevos Panoramas',
+                        style: TextStyle(color: Colors.white, fontSize: 14),
+                      ),
+                      subtitle: const Text(
+                        'Notificar al agregarse un evento nuevo',
+                        style: TextStyle(color: Colors.white60, fontSize: 11),
+                      ),
+                      value:
+                          NotificationService().newEventsNotificationsEnabled,
+                      activeColor: Colors.pinkAccent,
+                      onChanged: (val) async {
+                        await NotificationService()
+                            .setNewEventsNotificationsEnabled(val);
+                        setModalState(() {});
+                      },
+                    ),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text(
+                        'Eventos Cercanos',
+                        style: TextStyle(color: Colors.white, fontSize: 14),
+                      ),
+                      subtitle: const Text(
+                        'Notificar cuando haya un evento cerca de ti',
+                        style: TextStyle(color: Colors.white60, fontSize: 11),
+                      ),
+                      value: NotificationService().nearbyNotificationsEnabled,
+                      activeColor: Colors.pinkAccent,
+                      onChanged: (val) async {
+                        await NotificationService()
+                            .setNearbyNotificationsEnabled(val);
+                        setModalState(() {});
+                      },
+                    ),
+                    if (NotificationService().nearbyNotificationsEnabled) ...[
+                      const SizedBox(height: 6),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Rango de distancia cercana',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 13,
+                            ),
+                          ),
+                          Text(
+                            '${NotificationService().nearbyRadiusKm.toStringAsFixed(0)} km',
+                            style: const TextStyle(
+                              color: Colors.pinkAccent,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Slider(
+                        value: NotificationService().nearbyRadiusKm,
+                        min: 1.0,
+                        max: 50.0,
+                        divisions: 49,
+                        activeColor: Colors.pinkAccent,
+                        inactiveColor: Colors.white24,
+                        label:
+                            '${NotificationService().nearbyRadiusKm.toStringAsFixed(0)} km',
+                        onChanged: (val) async {
+                          await NotificationService().setNearbyRadiusKm(val);
+                          setModalState(() {});
+                        },
+                      ),
+                    ],
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text(
+                        'Recordatorios de Favoritos',
+                        style: TextStyle(color: Colors.white, fontSize: 14),
+                      ),
+                      subtitle: const Text(
+                        'Avisar antes de iniciar tus eventos guardados',
+                        style: TextStyle(color: Colors.white60, fontSize: 11),
+                      ),
+                      value:
+                          NotificationService().savedEventsNotificationsEnabled,
+                      activeColor: Colors.pinkAccent,
+                      onChanged: (val) async {
+                        await NotificationService()
+                            .setSavedEventsNotificationsEnabled(val);
+                        setModalState(() {});
+                      },
+                    ),
+                  ],
+                ],
               ),
-              const SizedBox(height: 12),
-              ListTile(
-                leading: Icon(
-                  CupertinoIcons.person,
-                  color: _user == null ? Colors.white54 : Colors.pinkAccent,
-                ),
-                title: Text(
-                  _user == null
-                      ? 'Sesión de invitado'
-                      : 'Cuenta: ${_user!.name}',
-                  style: const TextStyle(color: Colors.white),
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),

@@ -349,7 +349,7 @@ class _RegisterViewState extends State<RegisterView> {
                                   ),
                                 ),
                                 const Text(
-                                  ' (Ley 19.628 de Protección de Datos Personales en Chile).',
+                                  ' (Ley N.º 21.855 de Protección de Datos Personales en Chile).',
                                   style: TextStyle(color: Colors.white70, fontSize: 13),
                                 ),
                               ],
@@ -482,7 +482,7 @@ class _RegisterViewState extends State<RegisterView> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Protección de Datos Personales (Chile - Ley N° 19.628)\n\n'
+                'Protección de Datos Personales (Chile - Ley N.º 21.855)\n\n'
                 '1. Recolección de Datos\n'
                 'PanoramAPP recolecta datos como Nombre, RUT y Correo Electrónico para la autenticación, seguridad y personalización de la experiencia del usuario.\n\n'
                 '2. Finalidad del Tratamiento\n'
@@ -492,8 +492,8 @@ class _RegisterViewState extends State<RegisterView> {
                 ' • Enviar notificaciones sobre eventos de su interés.\n\n'
                 '3. No Transferencia a Terceros\n'
                 'Sus datos no serán vendidos, cedidos ni compartidos con terceros sin su consentimiento expreso, salvo requerimiento judicial o legal.\n\n'
-                '4. Derechos ARCO (Acceso, Rectificación, Cancelación y Oposición)\n'
-                'Conforme a la Ley N° 19.628 sobre Protección de la Vida Privada en Chile, usted tiene derecho a acceder a sus datos, solicitar su modificación o exigir su eliminación del sistema en cualquier momento escribiendo a soporte.',
+                '4. Derechos ARCO y Principios de la Ley N.º 21.855\n'
+                'Conforme a la Ley N.º 21.855 de Protección de Datos Personales en Chile, usted tiene derecho a acceder a sus datos, solicitar su modificación, portabilidad o exigir su eliminación del sistema en cualquier momento escribiendo a soporte.',
                 style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
               ),
             ],

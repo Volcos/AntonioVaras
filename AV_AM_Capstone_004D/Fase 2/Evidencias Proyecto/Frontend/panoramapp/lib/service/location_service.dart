@@ -22,14 +22,15 @@ class AddressSuggestion {
 
 class LocationService {
   static const Map<String, AddressSuggestion> _lugaresConocidos = {
+    // Renca y Sector Norte
     'plaza de renca': AddressSuggestion(
-      displayName: 'Plaza Renca, Renca, Santiago, Chile',
+      displayName: 'Plaza de Renca, Renca, Santiago, Chile',
       latitude: -33.4050667,
       longitude: -70.7039275,
       comuna: 'Renca',
     ),
     'plaza renca': AddressSuggestion(
-      displayName: 'Plaza Renca, Renca, Santiago, Chile',
+      displayName: 'Plaza de Renca, Renca, Santiago, Chile',
       latitude: -33.4050667,
       longitude: -70.7039275,
       comuna: 'Renca',
@@ -39,6 +40,200 @@ class LocationService {
       latitude: -33.4042655,
       longitude: -70.7807345,
       comuna: 'Renca',
+    ),
+    'municipalidad de renca': AddressSuggestion(
+      displayName: 'Municipalidad de Renca, Renca, Santiago, Chile',
+      latitude: -33.4045,
+      longitude: -70.7042,
+      comuna: 'Renca',
+    ),
+    'espacio riesco': AddressSuggestion(
+      displayName: 'Espacio Riesco, Huechuraba, Santiago, Chile',
+      latitude: -33.3744,
+      longitude: -70.6289,
+      comuna: 'Huechuraba',
+    ),
+    'hipodromo chile': AddressSuggestion(
+      displayName: 'Hipódromo Chile, Independencia, Santiago, Chile',
+      latitude: -33.4131,
+      longitude: -70.6653,
+      comuna: 'Independencia',
+    ),
+
+    // Santiago Centro y Santiago Poniente
+    'movistar arena': AddressSuggestion(
+      displayName: 'Movistar Arena, Parque O\'Higgins, Santiago, Chile',
+      latitude: -33.4578,
+      longitude: -70.6598,
+      comuna: 'Santiago',
+    ),
+    'parque o\'higgins': AddressSuggestion(
+      displayName: 'Parque O\'Higgins, Santiago, Chile',
+      latitude: -33.4578,
+      longitude: -70.6598,
+      comuna: 'Santiago',
+    ),
+    'plaza de armas': AddressSuggestion(
+      displayName: 'Plaza de Armas, Santiago, Chile',
+      latitude: -33.4378,
+      longitude: -70.6504,
+      comuna: 'Santiago',
+    ),
+    'teatro caupolican': AddressSuggestion(
+      displayName: 'Teatro Caupolicán, San Diego 850, Santiago, Chile',
+      latitude: -33.4552,
+      longitude: -70.6521,
+      comuna: 'Santiago',
+    ),
+    'centro cultural gam': AddressSuggestion(
+      displayName: 'Centro Cultural GAM, Alameda 227, Santiago, Chile',
+      latitude: -33.4437,
+      longitude: -70.6443,
+      comuna: 'Santiago',
+    ),
+    'gam': AddressSuggestion(
+      displayName: 'Centro Cultural GAM, Alameda 227, Santiago, Chile',
+      latitude: -33.4437,
+      longitude: -70.6443,
+      comuna: 'Santiago',
+    ),
+    'teatro teleton': AddressSuggestion(
+      displayName: 'Teatro Teletón, Rosas 1531, Santiago, Chile',
+      latitude: -33.4489,
+      longitude: -70.6655,
+      comuna: 'Santiago',
+    ),
+    'teatro municipal de santiago': AddressSuggestion(
+      displayName: 'Teatro Municipal de Santiago, Agustinas 794, Santiago, Chile',
+      latitude: -33.4414,
+      longitude: -70.6473,
+      comuna: 'Santiago',
+    ),
+    'centro cultural la moneda': AddressSuggestion(
+      displayName: 'Centro Cultural La Moneda, Santiago, Chile',
+      latitude: -33.4431,
+      longitude: -70.6539,
+      comuna: 'Santiago',
+    ),
+    'estacion mapocho': AddressSuggestion(
+      displayName: 'Centro Cultural Estación Mapocho, Santiago, Chile',
+      latitude: -33.4331,
+      longitude: -70.6548,
+      comuna: 'Santiago',
+    ),
+    'parque quinta normal': AddressSuggestion(
+      displayName: 'Parque Quinta Normal, Matucana 520, Santiago, Chile',
+      latitude: -33.4432,
+      longitude: -70.6811,
+      comuna: 'Santiago',
+    ),
+    'matucana 100': AddressSuggestion(
+      displayName: 'Centro Cultural Matucana 100, Estación Central, Santiago, Chile',
+      latitude: -33.4452,
+      longitude: -70.6787,
+      comuna: 'Estación Central',
+    ),
+    'blondie': AddressSuggestion(
+      displayName: 'Discotheque Blondie, Alameda 2879, Estación Central, Santiago, Chile',
+      latitude: -33.4512,
+      longitude: -70.6611,
+      comuna: 'Estación Central',
+    ),
+    'club hipico': AddressSuggestion(
+      displayName: 'Club Hípico de Santiago, Blanco Encalada 2540, Santiago, Chile',
+      latitude: -33.4633,
+      longitude: -70.6698,
+      comuna: 'Santiago',
+    ),
+
+    // Sector Oriente y Ñuñoa
+    'estadio nacional': AddressSuggestion(
+      displayName: 'Estadio Nacional Julio Martínez Prádanos, Ñuñoa, Santiago, Chile',
+      latitude: -33.4651,
+      longitude: -70.6127,
+      comuna: 'Ñuñoa',
+    ),
+    'plaza nuñoa': AddressSuggestion(
+      displayName: 'Plaza Ñuñoa, Ñuñoa, Santiago, Chile',
+      latitude: -33.4563,
+      longitude: -70.5985,
+      comuna: 'Ñuñoa',
+    ),
+    'plaza italia': AddressSuggestion(
+      displayName: 'Plaza Baquedano (Plaza Italia), Providencia, Santiago, Chile',
+      latitude: -33.4370,
+      longitude: -70.6346,
+      comuna: 'Providencia',
+    ),
+    'teatro nescafe de las artes': AddressSuggestion(
+      displayName: 'Teatro Nescafé de las Artes, Manuel Montt 032, Providencia, Santiago, Chile',
+      latitude: -33.4357,
+      longitude: -70.6226,
+      comuna: 'Providencia',
+    ),
+    'parque bicentenario vitacura': AddressSuggestion(
+      displayName: 'Parque Bicentenario, Vitacura, Santiago, Chile',
+      latitude: -33.4025,
+      longitude: -70.5986,
+      comuna: 'Vitacura',
+    ),
+    'parque araucano': AddressSuggestion(
+      displayName: 'Parque Araucano, Presidente Riesco 5698, Las Condes, Santiago, Chile',
+      latitude: -33.4022,
+      longitude: -70.5706,
+      comuna: 'Las Condes',
+    ),
+    'san carlos de apoquindo': AddressSuggestion(
+      displayName: 'Estadio San Carlos de Apoquindo (Claro Arena), Las Condes, Santiago, Chile',
+      latitude: -33.3956,
+      longitude: -70.5002,
+      comuna: 'Las Condes',
+    ),
+
+    // Sector Sur / Cordillera
+    'estadio monumental': AddressSuggestion(
+      displayName: 'Estadio Monumental David Arellano, Macul, Santiago, Chile',
+      latitude: -33.5078,
+      longitude: -70.6105,
+      comuna: 'Macul',
+    ),
+    'estadio bicentenario la florida': AddressSuggestion(
+      displayName: 'Estadio Bicentenario de La Florida, La Florida, Santiago, Chile',
+      latitude: -33.5283,
+      longitude: -70.5975,
+      comuna: 'La Florida',
+    ),
+    'plaza de maipu': AddressSuggestion(
+      displayName: 'Plaza de Maipú, Maipú, Santiago, Chile',
+      latitude: -33.5109,
+      longitude: -70.7573,
+      comuna: 'Maipú',
+    ),
+    'plaza de puente alto': AddressSuggestion(
+      displayName: 'Plaza de Puente Alto, Puente Alto, Santiago, Chile',
+      latitude: -33.6117,
+      longitude: -70.5758,
+      comuna: 'Puente Alto',
+    ),
+
+    // Regiones
+    'quinta vergara': AddressSuggestion(
+      displayName: 'Quinta Vergara, Viña del Mar, Región de Valparaíso, Chile',
+      latitude: -33.0289,
+      longitude: -71.5528,
+      comuna: 'Viña del Mar',
+    ),
+    'estadio sausalito': AddressSuggestion(
+      displayName: 'Estadio Sausalito, Viña del Mar, Región de Valparaíso, Chile',
+      latitude: -33.0136,
+      longitude: -71.5428,
+      comuna: 'Viña del Mar',
+    ),
+    'estadio ester roa': AddressSuggestion(
+      displayName: 'Estadio Ester Roa Rebolledo, Concepción, Chile',
+      latitude: -36.8153,
+      longitude: -73.0264,
+      comuna: 'Concepción',
     ),
   };
   static Completer<LatLng>? _locationCompleter;
@@ -106,7 +301,11 @@ class LocationService {
       return null;
     }
 
-    final cacheKey = '$latStr,$lngStr';
+    final double? lat = double.tryParse(latStr);
+    final double? lng = double.tryParse(lngStr);
+    if (lat == null || lng == null || (lat == 0.0 && lng == 0.0)) return null;
+
+    final cacheKey = '${lat.toStringAsFixed(4)},${lng.toStringAsFixed(4)}';
     if (_addressCache.containsKey(cacheKey)) {
       return _addressCache[cacheKey];
     }
@@ -114,12 +313,14 @@ class LocationService {
     final pendingRequest = _addressRequests[cacheKey];
     if (pendingRequest != null) return pendingRequest;
 
-    final request = _obtenerDireccionSinCache(latStr, lngStr);
+    final request = _obtenerDireccionSinCache(lat, lng);
     _addressRequests[cacheKey] = request;
 
     try {
       final address = await request;
-      _addressCache[cacheKey] = address;
+      if (address != null && address.isNotEmpty) {
+        _addressCache[cacheKey] = address;
+      }
       return address;
     } finally {
       _addressRequests.remove(cacheKey);
@@ -127,15 +328,76 @@ class LocationService {
   }
 
   static Future<String?> _obtenerDireccionSinCache(
-    String latStr,
-    String lngStr,
+    double lat,
+    double lng,
   ) async {
+    // 1. Intentar Geocodificación inversa precisa vía HTTP con OpenStreetMap (Nominatim)
     try {
-      double lat = double.tryParse(latStr) ?? 0.0;
-      double lng = double.tryParse(lngStr) ?? 0.0;
+      final uri = Uri.parse(
+        'https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=$lat&lon=$lng&accept-language=es',
+      );
+      final response = await http.get(uri, headers: {
+        'User-Agent': 'PanoramAPP/1.0 (event address search)',
+      }).timeout(const Duration(seconds: 4));
 
-      if (lat == 0.0 && lng == 0.0) return null;
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        final address = data['address'] as Map<String, dynamic>?;
+        if (address != null) {
+          // Extraer únicamente calles / vías reales (sin fallback a la comuna)
+          final String? roadName = address['road']?.toString() ??
+              address['street']?.toString() ??
+              address['pedestrian']?.toString() ??
+              address['footway']?.toString() ??
+              address['path']?.toString() ??
+              address['residential']?.toString() ??
+              address['highway']?.toString() ??
+              address['square']?.toString() ??
+              address['amenity']?.toString() ??
+              address['building']?.toString();
 
+          final String houseNumber = address['house_number']?.toString() ?? '';
+
+          // Extraer la comuna o localidad
+          final String? comunaName = address['suburb']?.toString() ??
+              address['city_district']?.toString() ??
+              address['town']?.toString() ??
+              address['city']?.toString() ??
+              address['county']?.toString();
+
+          List<String> parts = [];
+
+          if (roadName != null && roadName.isNotEmpty) {
+            final streetStr = houseNumber.isNotEmpty ? '$roadName $houseNumber' : roadName;
+            parts.add(streetStr);
+          }
+
+          if (comunaName != null && comunaName.isNotEmpty) {
+            // Prevenir duplicados (ej: evitar "Renca, Renca")
+            if (parts.isEmpty || parts.last.toLowerCase() != comunaName.toLowerCase()) {
+              parts.add(comunaName);
+            }
+          }
+
+          if (parts.isNotEmpty) {
+            return parts.join(', ');
+          }
+
+          if (data['display_name'] != null) {
+            final rawDisplay = data['display_name'].toString();
+            final displaySet = <String>{};
+            for (final item in rawDisplay.split(',')) {
+              final trimmed = item.trim();
+              if (trimmed.isNotEmpty) displaySet.add(trimmed);
+            }
+            return displaySet.take(2).join(', ');
+          }
+        }
+      }
+    } catch (_) {}
+
+    // 2. Respaldo con plugin nativo
+    try {
       final placemarks = await geo.Geocoding().placemarkFromCoordinates(
         lat,
         lng,
@@ -143,24 +405,26 @@ class LocationService {
 
       if (placemarks.isNotEmpty) {
         geo.Placemark place = placemarks[0];
-
-        // Armar el String
         List<String> addressParts = [];
         if (place.street != null && place.street!.isNotEmpty) {
           addressParts.add(place.street!);
         }
-        if (place.locality != null && place.locality!.isNotEmpty) {
-          addressParts.add(place.locality!);
+        final subLoc = (place.subLocality != null && place.subLocality!.isNotEmpty)
+            ? place.subLocality
+            : place.locality;
+        if (subLoc != null && subLoc.isNotEmpty) {
+          if (addressParts.isEmpty || addressParts.last.toLowerCase() != subLoc.toLowerCase()) {
+            addressParts.add(subLoc);
+          }
         }
 
         if (addressParts.isNotEmpty) {
           return addressParts.join(', ');
         }
       }
-      return null;
-    } catch (e) {
-      return null; // Si falla, regresamos null para usar el fallback
-    }
+    } catch (_) {}
+
+    return null;
   }
 
   // Convierte un texto (ej: "Plaza Ñuñoa, Santiago") en Coordenadas (LatLng)
@@ -248,6 +512,9 @@ class LocationService {
     // Nominatim puede interpretar "calle número" como una calle genérica
     // fuera de Santiago. Se prueban variantes con el contexto local para
     // priorizar la dirección que el usuario está buscando.
+    final centerLat = _lastKnownLocation?.latitude ?? -33.4489;
+    final centerLng = _lastKnownLocation?.longitude ?? -70.6693;
+
     final queries = <String>{
       trimmedQuery,
       '$trimmedQuery, Santiago, Chile',
@@ -261,6 +528,8 @@ class LocationService {
         'addressdetails': '1',
         'limit': '10',
         'countrycodes': 'cl',
+        'lat': centerLat.toString(),
+        'lon': centerLng.toString(),
         'dedupe': '1',
       });
 
@@ -329,8 +598,13 @@ class LocationService {
     List<AddressSuggestion> suggestions,
     Set<String> seen,
   ) async {
+    final centerLat = _lastKnownLocation?.latitude ?? -33.4489;
+    final centerLng = _lastKnownLocation?.longitude ?? -70.6693;
+
     final uri = Uri.https('photon.komoot.io', '/api/', {
       'q': '$query, Santiago, Chile',
+      'lat': centerLat.toString(),
+      'lon': centerLng.toString(),
       'limit': '10',
     });
 

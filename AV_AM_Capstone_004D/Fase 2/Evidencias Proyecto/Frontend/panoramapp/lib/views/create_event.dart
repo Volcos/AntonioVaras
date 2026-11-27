@@ -1,19 +1,26 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
+import 'dart:ui';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'package:capstone/service/create_event_service.dart';
+import 'package:capstone/service/api_event.dart';
+import 'package:capstone/service/apibenja_service.dart';
 import 'package:capstone/service/location_service.dart';
 import 'package:capstone/service/web_service.dart';
 import 'package:capstone/service/auth_service.dart';
 import 'package:capstone/service/notification_service.dart';
+import 'package:maplibre_gl/maplibre_gl.dart';
+import 'package:capstone/views/map_location_picker.dart';
 
 class CreateEventView extends StatefulWidget {
-  const CreateEventView({super.key});
+  final ApiEvent? eventToEdit;
+
+  const CreateEventView({super.key, this.eventToEdit});
 
   @override
   State<CreateEventView> createState() => CreateEventViewState();
@@ -33,9 +40,7 @@ class CreateEventViewState extends State<CreateEventView> {
   final _latitude = TextEditingController();
   final _longitude = TextEditingController();
   final _organizer = TextEditingController();
-  final List<_DateForm> _dates = [
-    _DateForm(DateTime.now().add(const Duration(days: 1))),
-  ];
+  late List<_DateForm> _dates;
   bool _saving = false;
   bool _resolvingAddress = false;
   Timer? _addressSearchTimer;
@@ -44,17 +49,105 @@ class CreateEventViewState extends State<CreateEventView> {
   AddressSuggestion? _selectedAddress;
   Uint8List? _selectedImageBytes;
   String? _selectedImageName;
+  String? _existingImage;
   final ImagePicker _imagePicker = ImagePicker();
   AuthUser? _creator;
   bool _loadingCreator = true;
+  bool _loadingEditData = false;
+  String? _editDataError;
 
   @override
   void initState() {
     super.initState();
+    _dates = [_DateForm(DateTime.now())];
     _addressFocus.addListener(() {
       if (!_addressFocus.hasFocus) _resolveAddress();
     });
     _loadCreator();
+    if (widget.eventToEdit != null) {
+      _loadingEditData = true;
+      _loadEditData(widget.eventToEdit!);
+    }
+  }
+
+  Future<void> _loadEditData(ApiEvent event) async {
+    final eventId = event.apiEventId ?? event.id;
+    if (eventId == null || eventId.isEmpty) {
+      if (mounted) {
+        setState(() {
+          _loadingEditData = false;
+          _editDataError = 'No se encontró el identificador del evento.';
+        });
+      }
+      return;
+    }
+
+    try {
+      final details = await ApibenjaService.getEventDetails(eventId);
+      if (!mounted) return;
+      setState(() {
+        _populateEditData(details);
+        _loadingEditData = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _loadingEditData = false;
+        _editDataError = 'No se pudo cargar el evento: $error';
+      });
+    }
+  }
+
+  void _populateEditData(ApiEvent event) {
+    _name.text = event.nombre;
+    _description.text = event.descripcion;
+    _address.text = event.localizacion;
+    _existingImage = event.imagen;
+    _imageUrl.text = event.imagen.startsWith('http') ? event.imagen : '';
+    _eventUrl.text = event.fuenteInfo.startsWith('http')
+        ? event.fuenteInfo
+        : '';
+    _organizer.text = event.organizador;
+    _comuna.text = event.comuna;
+    _type.text = event.tipoEvento;
+    _latitude.text = event.latitude ?? '';
+    _longitude.text = event.longitude ?? '';
+    for (final date in _dates) {
+      date.dispose();
+    }
+    _dates = [];
+    if (event.schedules.isNotEmpty) {
+      _dates = event.schedules.map((schedule) {
+        final date = _DateForm(
+          DateTime.tryParse(schedule.start)?.toLocal() ?? DateTime.now(),
+        )..idFecha = schedule.idFecha;
+        date.end = schedule.end == null || schedule.end!.isEmpty
+            ? null
+            : DateTime.tryParse(schedule.end!)?.toLocal();
+        date.price.text = schedule.price ?? '';
+        return date;
+      }).toList();
+    } else if (event.fechaInicio.isNotEmpty) {
+      final starts = event.fechaInicio
+          .split('\n')
+          .map((value) => value.trim())
+          .where((value) => value.isNotEmpty)
+          .toList();
+      final ends = event.fechaTermino
+          .split('\n')
+          .map((value) => value.trim())
+          .where((value) => value.isNotEmpty)
+          .toList();
+      _dates = starts.asMap().entries.map((entry) {
+        final start = DateTime.tryParse(entry.value);
+        final end = entry.key < ends.length
+            ? DateTime.tryParse(ends[entry.key])
+            : null;
+        return _DateForm(start?.toLocal() ?? DateTime.now())
+          ..end = end?.toLocal();
+      }).toList();
+    }
+    if (_dates.isEmpty) _dates = [_DateForm(DateTime.now())];
   }
 
   Future<void> _loadCreator() async {
@@ -63,7 +156,7 @@ class CreateEventViewState extends State<CreateEventView> {
     setState(() {
       _creator = creator;
       _loadingCreator = false;
-      if (creator?.userType == 3) {
+      if (widget.eventToEdit == null && creator?.userType == 3) {
         _organizer.text = creator?.name ?? '';
       }
     });
@@ -98,7 +191,9 @@ class CreateEventViewState extends State<CreateEventView> {
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
-        title: const Text('Crear evento'),
+        title: Text(
+          widget.eventToEdit != null ? 'Editar evento' : 'Crear evento',
+        ),
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
       ),
@@ -107,9 +202,11 @@ class CreateEventViewState extends State<CreateEventView> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
           children: [
-            const Text(
-              'Publica una nueva experiencia',
-              style: TextStyle(
+            Text(
+              widget.eventToEdit != null
+                  ? 'Modifica la información del evento'
+                  : 'Publica una nueva experiencia',
+              style: const TextStyle(
                 color: Colors.white,
                 fontSize: 24,
                 fontWeight: FontWeight.w600,
@@ -120,6 +217,22 @@ class CreateEventViewState extends State<CreateEventView> {
               'Completa los datos del evento y agrega todas sus funciones.',
               style: TextStyle(color: Colors.white60),
             ),
+            if (_loadingEditData) ...[
+              const SizedBox(height: 16),
+              const LinearProgressIndicator(),
+              const SizedBox(height: 8),
+              const Text(
+                'Cargando datos completos del evento…',
+                style: TextStyle(color: Colors.white60),
+              ),
+            ],
+            if (_editDataError != null) ...[
+              const SizedBox(height: 16),
+              Text(
+                _editDataError!,
+                style: const TextStyle(color: Colors.redAccent),
+              ),
+            ],
             const SizedBox(height: 24),
             _field(_name, 'Nombre del evento', required: true),
             _field(_description, 'Descripción', maxLines: 3),
@@ -148,8 +261,11 @@ class CreateEventViewState extends State<CreateEventView> {
                   ),
                 ),
                 TextButton.icon(
-                  onPressed: () =>
-                      setState(() => _dates.add(_DateForm(_dates.last.start))),
+                  onPressed: _loadingEditData || _editDataError != null
+                      ? null
+                      : () => setState(
+                          () => _dates.add(_DateForm(_dates.last.start)),
+                        ),
                   icon: const Icon(CupertinoIcons.plus),
                   label: const Text('Agregar'),
                 ),
@@ -160,7 +276,9 @@ class CreateEventViewState extends State<CreateEventView> {
             ),
             const SizedBox(height: 18),
             FilledButton(
-              onPressed: _saving ? null : _submit,
+              onPressed: _saving || _loadingEditData || _editDataError != null
+                  ? null
+                  : _submit,
               style: FilledButton.styleFrom(
                 backgroundColor: Colors.pinkAccent,
                 foregroundColor: Colors.white,
@@ -175,9 +293,11 @@ class CreateEventViewState extends State<CreateEventView> {
                         color: Colors.white,
                       ),
                     )
-                  : const Text(
-                      'Crear evento',
-                      style: TextStyle(fontWeight: FontWeight.bold),
+                  : Text(
+                      widget.eventToEdit != null
+                          ? 'Guardar cambios'
+                          : 'Crear evento',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
             ),
           ],
@@ -232,7 +352,35 @@ class CreateEventViewState extends State<CreateEventView> {
                 : null,
             onChanged: _searchAddresses,
             onFieldSubmitted: (_) => _resolveAddress(),
-            decoration: _decoration('Dirección'),
+            decoration: _decoration('Dirección').copyWith(
+              suffixIcon: IconButton(
+                icon: const Icon(
+                  CupertinoIcons.map_pin_ellipse,
+                  color: Colors.pinkAccent,
+                ),
+                tooltip: 'Seleccionar en el mapa',
+                onPressed: _openMapLocationPicker,
+              ),
+            ),
+          ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: _openMapLocationPicker,
+              icon: const Icon(
+                CupertinoIcons.map_pin_ellipse,
+                size: 16,
+                color: Colors.pinkAccent,
+              ),
+              label: const Text(
+                'Seleccionar ubicación en el mapa',
+                style: TextStyle(
+                  color: Colors.pinkAccent,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
           ),
           if (_addressSuggestions.isNotEmpty)
             Container(
@@ -332,6 +480,47 @@ class CreateEventViewState extends State<CreateEventView> {
     );
   }
 
+  Future<void> _openMapLocationPicker() async {
+    final currentLat = double.tryParse(_latitude.text.trim());
+    final currentLng = double.tryParse(_longitude.text.trim());
+
+    final selectedLatLng = await Navigator.push<LatLng>(
+      context,
+      CupertinoPageRoute(
+        builder: (_) => MapLocationPickerView(
+          initialLat: currentLat,
+          initialLng: currentLng,
+        ),
+      ),
+    );
+
+    if (selectedLatLng == null || !mounted) return;
+
+    final latStr = selectedLatLng.latitude.toStringAsFixed(6);
+    final lngStr = selectedLatLng.longitude.toStringAsFixed(6);
+
+    _latitude.text = latStr;
+    _longitude.text = lngStr;
+
+    setState(() => _resolvingAddress = true);
+    try {
+      final address = await LocationService.obtenerDireccion(latStr, lngStr);
+      if (address != null && address.isNotEmpty) {
+        _address.text = address;
+        _selectedAddress = AddressSuggestion(
+          displayName: address,
+          latitude: selectedLatLng.latitude,
+          longitude: selectedLatLng.longitude,
+        );
+        final suggestions = await LocationService.buscarDirecciones(address);
+        if (suggestions.isNotEmpty && suggestions.first.comuna != null) {
+          _comuna.text = suggestions.first.comuna!;
+        }
+      }
+    } catch (_) {}
+    if (mounted) setState(() => _resolvingAddress = false);
+  }
+
   Future<void> _pickJpgImage() async {
     final picked = await _imagePicker.pickImage(
       source: ImageSource.gallery,
@@ -361,6 +550,9 @@ class CreateEventViewState extends State<CreateEventView> {
 
   void _searchAddresses(String value) {
     _selectedAddress = null;
+    _latitude.clear();
+    _longitude.clear();
+    _comuna.clear();
     _addressSearchTimer?.cancel();
     if (value.trim().length < 3) {
       setState(() => _addressSuggestions = []);
@@ -510,29 +702,132 @@ class CreateEventViewState extends State<CreateEventView> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: OutlinedButton(
-        onPressed: () async {
-          final date = await showDatePicker(
+        onPressed: () {
+          DateTime tempPicked = value ?? DateTime.now();
+          showCupertinoModalPopup<void>(
             context: context,
-            initialDate: value ?? DateTime.now(),
-            firstDate: DateTime.now(),
-            lastDate: DateTime(2100),
+            builder: (BuildContext context) => ClipRRect(
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(28),
+              ),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
+                child: Container(
+                  height: 310,
+                  padding: const EdgeInsets.only(top: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(
+                      0xCC1A1A1A,
+                    ), // Efecto vidrio líquido translúcido
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(28),
+                    ),
+                    border: Border.all(
+                      color: const Color(0x33FFFFFF),
+                      width: 1,
+                    ),
+                  ),
+                  child: SafeArea(
+                    top: false,
+                    child: Column(
+                      children: [
+                        // Tirador superior indicador
+                        Center(
+                          child: Container(
+                            width: 36,
+                            height: 4,
+                            margin: const EdgeInsets.only(top: 8, bottom: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.white24,
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                        ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            CupertinoButton(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                              ),
+                              child: const Text(
+                                'Cancelar',
+                                style: TextStyle(color: Colors.white54),
+                              ),
+                              onPressed: () => Navigator.of(context).pop(),
+                            ),
+                            Text(
+                              label,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            CupertinoButton(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                              ),
+                              child: const Text(
+                                'Aceptar',
+                                style: TextStyle(
+                                  color: Colors.pinkAccent,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              onPressed: () {
+                                onChanged(tempPicked);
+                                Navigator.of(context).pop();
+                              },
+                            ),
+                          ],
+                        ),
+                        Expanded(
+                          child: CupertinoTheme(
+                            data: const CupertinoThemeData(
+                              brightness: Brightness.dark,
+                              textTheme: CupertinoTextThemeData(
+                                pickerTextStyle: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                ),
+                              ),
+                            ),
+                            child: CupertinoDatePicker(
+                              mode: CupertinoDatePickerMode.dateAndTime,
+                              initialDateTime: value ?? DateTime.now(),
+                              minimumDate: DateTime.now().subtract(
+                                const Duration(days: 1),
+                              ),
+                              maximumDate: DateTime(2100),
+                              use24hFormat: true,
+                              onDateTimeChanged: (DateTime newDateTime) {
+                                tempPicked = newDateTime;
+                              },
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
           );
-          if (date == null || !mounted) return;
-          final time = await showTimePicker(
-            context: context,
-            initialTime: TimeOfDay.fromDateTime(value ?? DateTime.now()),
-          );
-          if (time != null) {
-            onChanged(
-              DateTime(date.year, date.month, date.day, time.hour, time.minute),
-            );
-          }
         },
         style: OutlinedButton.styleFrom(
           foregroundColor: Colors.white70,
           alignment: Alignment.centerLeft,
+          side: const BorderSide(color: Colors.white24),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          minimumSize: const Size.fromHeight(48),
         ),
-        child: Text(value == null ? label : '$label: ${_formatDate(value)}'),
+        child: Text(
+          value == null ? label : '$label: ${_formatDate(value)}',
+          style: const TextStyle(color: Colors.white),
+        ),
       ),
     );
   }
@@ -554,51 +849,109 @@ class CreateEventViewState extends State<CreateEventView> {
     setState(() => _saving = true);
     try {
       final creator = await AuthService.getSavedUser();
-      final organizerName = creator?.userType == 1
+      final organizerName = widget.eventToEdit != null
+          ? _organizer.text
+          : creator?.userType == 1
           ? _organizer.text
           : (creator?.name ?? '');
-      await CreateEventService.createEvent(
-        nombre: _name.text,
-        descripcion: _description.text,
-        direccion: _address.text,
-        imagenUrl: _selectedImageBytes != null
-            ? 'data:image/jpeg;base64,${base64Encode(_selectedImageBytes!)}'
-            : _imageUrl.text,
-        eventUrl: _eventUrl.text,
-        comuna: _comuna.text,
-        tipoEvento: _type.text,
-        latitud: double.tryParse(_latitude.text.trim()),
-        longitud: double.tryParse(_longitude.text.trim()),
-        organizador: organizerName,
-        creatorId: creator?.id,
-        fechas: _dates
-            .map(
-              (date) => EventDateInput(
-                fechaInicio: date.start,
-                fechaTermino: date.end,
-                precioDesde: double.tryParse(date.price.text.trim()),
-              ),
-            )
-            .toList(),
-      );
-      if (!mounted) return;
-      _showMessage('Evento creado correctamente.');
-      
-      // Enviar notificación de evento creado y programar la de finalización
-      final eventName = _name.text.trim();
-      NotificationService().showEventCreatedNotification(eventName: eventName);
-      
-      for (final date in _dates) {
-        if (date.end != null && date.end!.isAfter(DateTime.now())) {
-          NotificationService().scheduleEventFinishedNotification(
-            notificationId: date.end!.millisecondsSinceEpoch.remainder(100000),
-            eventName: eventName,
-            finishTime: date.end!,
+
+      if (widget.eventToEdit != null) {
+        final token = await AuthService.getToken();
+        if (token == null || token.isEmpty) {
+          throw Exception('Debes iniciar sesión nuevamente.');
+        }
+        await CreateEventService.updateEvent(
+          eventId:
+              widget.eventToEdit!.apiEventId ?? widget.eventToEdit!.id ?? '',
+          token: token,
+          nombre: _name.text,
+          descripcion: _description.text,
+          direccion: _address.text,
+          imagenUrl: _selectedImageBytes != null
+              ? 'data:image/jpeg;base64,${base64Encode(_selectedImageBytes!)}'
+              : _imageUrl.text.trim().isNotEmpty
+              ? _imageUrl.text
+              : (_existingImage ?? ''),
+          eventUrl: _eventUrl.text,
+          comuna: _comuna.text,
+          tipoEvento: _type.text.isEmpty ? 'Música' : _type.text,
+          latitud: double.tryParse(_latitude.text.trim()),
+          longitud: double.tryParse(_longitude.text.trim()),
+          organizador: organizerName,
+          creatorId: widget.eventToEdit!.creatorId ?? creator?.id,
+          fechas: _dates
+              .map(
+                (date) => EventDateInput(
+                  fechaInicio: date.start,
+                  fechaTermino: date.end,
+                  precioDesde: double.tryParse(date.price.text.trim()),
+                  idFecha: int.tryParse(date.idFecha ?? ''),
+                ),
+              )
+              .toList(),
+        );
+        if (!mounted) return;
+        _showMessage('Evento actualizado correctamente.');
+      } else {
+        final response = await CreateEventService.createEvent(
+          nombre: _name.text,
+          descripcion: _description.text,
+          direccion: _address.text,
+          imagenUrl: _selectedImageBytes != null
+              ? 'data:image/jpeg;base64,${base64Encode(_selectedImageBytes!)}'
+              : _imageUrl.text,
+          eventUrl: _eventUrl.text,
+          comuna: _comuna.text,
+          tipoEvento: _type.text.isEmpty ? 'Música' : _type.text,
+          latitud: double.tryParse(_latitude.text.trim()),
+          longitud: double.tryParse(_longitude.text.trim()),
+          organizador: organizerName,
+          creatorId: creator?.id,
+          fechas: _dates
+              .map(
+                (date) => EventDateInput(
+                  fechaInicio: date.start,
+                  fechaTermino: date.end,
+                  precioDesde: double.tryParse(date.price.text.trim()),
+                ),
+              )
+              .toList(),
+        );
+        if (!mounted) return;
+        final responseData = response['data'];
+        if (responseData is! Map) {
+          throw Exception(
+            'El servidor no devolvió los datos del evento creado.',
           );
         }
+        final createdEvent = ApibenjaService.parseEvent(
+          Map<String, dynamic>.from(responseData),
+        )..creatorId = creator?.id;
+        if (createdEvent.id == null || createdEvent.id!.isEmpty) {
+          throw Exception(
+            'El servidor no devolvió el identificador del evento.',
+          );
+        }
+        Webservice.upsertEvent(createdEvent);
+        _showMessage('Evento creado correctamente.');
+
+        final eventName = _name.text.trim();
+        final comuna = _comuna.text.trim();
+        NotificationService().showOrganizerEventCreatedNotification(
+          eventName: eventName,
+        );
+        NotificationService().showNewEventAddedNotification(
+          eventName: eventName,
+          comuna: comuna,
+        );
       }
 
-      await Webservice.refreshEvents();
+      if (widget.eventToEdit != null) {
+        await Webservice.refreshEvents();
+        if (mounted) Navigator.of(context).pop(true);
+        return;
+      }
+
       _formKey.currentState!.reset();
       for (final controller in [
         _name,
@@ -617,6 +970,10 @@ class CreateEventViewState extends State<CreateEventView> {
       setState(() {
         _selectedImageBytes = null;
         _selectedImageName = null;
+        for (final date in _dates) {
+          date.dispose();
+        }
+        _dates = [_DateForm(DateTime.now())];
       });
     } catch (error) {
       if (mounted) {
@@ -631,6 +988,16 @@ class CreateEventViewState extends State<CreateEventView> {
     final address = _address.text.trim();
     if (address.isEmpty || _resolvingAddress) return;
     if (_selectedAddress?.displayName == address) return;
+
+    // Si ya existen coordenadas asignadas (por selector de mapa o sugerencia), NO sobrescribir
+    final currentLat = double.tryParse(_latitude.text.trim());
+    final currentLng = double.tryParse(_longitude.text.trim());
+    if (currentLat != null &&
+        currentLng != null &&
+        currentLat != 0 &&
+        currentLng != 0) {
+      return;
+    }
 
     setState(() => _resolvingAddress = true);
     try {
@@ -679,6 +1046,7 @@ class CreateEventViewState extends State<CreateEventView> {
 class _DateForm {
   DateTime start;
   DateTime? end;
+  String? idFecha;
   final TextEditingController price = TextEditingController();
 
   _DateForm(this.start);

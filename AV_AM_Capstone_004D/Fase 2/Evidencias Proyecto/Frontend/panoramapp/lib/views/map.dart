@@ -13,6 +13,7 @@ import 'package:capstone/service/web_service.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:capstone/service/image_cache.dart';
 import 'package:capstone/views/event_detail_screen.dart';
+import 'package:capstone/service/notification_service.dart';
 
 class MapView extends StatefulWidget {
   final ApiEvent? selectedEvent;
@@ -37,6 +38,7 @@ class _MapViewState extends State<MapView> {
   LatLng? _routeDestination;
   bool _routeLoading = false;
   bool _markersLoading = false;
+  bool _refreshMarkersRequested = false;
   static final Map<String, Uint8List> _markerImageCache = {};
   Uint8List? _fallbackMarkerImage;
   static final Map<String, _CachedRoute> _routeCache = {};
@@ -70,6 +72,10 @@ class _MapViewState extends State<MapView> {
   void _onEventsChanged() {
     final controller = _mapController;
     if (!mounted || controller == null) return;
+    if (_markersLoading) {
+      _refreshMarkersRequested = true;
+      return;
+    }
     unawaited(_onStyleLoaded());
   }
 
@@ -196,6 +202,14 @@ class _MapViewState extends State<MapView> {
 
   void _onUserLocationUpdated(UserLocation location) {
     LocationService.registrarActualizacion(location);
+    final events = _eventsBySymbolId.values.toList();
+    if (events.isNotEmpty) {
+      NotificationService().checkAndNotifyNearbyEvents(
+        events: events,
+        userLat: location.position.latitude,
+        userLng: location.position.longitude,
+      );
+    }
   }
 
   Future<_EventMarker?> _prepareEventMarker(ApiEvent event, int index) async {
@@ -435,6 +449,10 @@ class _MapViewState extends State<MapView> {
       debugPrint("Error dibujando eventos en mapa: $e");
     } finally {
       _markersLoading = false;
+      if (mounted && _refreshMarkersRequested) {
+        _refreshMarkersRequested = false;
+        unawaited(_onStyleLoaded());
+      }
     }
   }
 

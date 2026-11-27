@@ -6,10 +6,29 @@ import 'package:flutter/foundation.dart';
 class Webservice {
   static Future<List<ApiEvent>>? _eventsRequest;
   static List<ApiEvent>? _cachedEvents;
+  static final Map<String, ApiEvent> _locallyCreatedEvents = {};
   static final ValueNotifier<int> eventRevision = ValueNotifier<int>(0);
 
-  static List<ApiEvent> get cachedEvents =>
-      _cachedEvents == null ? <ApiEvent>[] : List<ApiEvent>.from(_cachedEvents!);
+  static List<ApiEvent> get cachedEvents => _cachedEvents == null
+      ? <ApiEvent>[]
+      : List<ApiEvent>.from(_cachedEvents!);
+
+  static void upsertEvent(ApiEvent event) {
+    if (event.id != null && event.id!.isNotEmpty) {
+      _locallyCreatedEvents[event.id!] = event;
+    }
+    _cachedEvents = _consolidateEvents([...?_cachedEvents, event]);
+    eventRevision.value++;
+  }
+
+  static void removeEventFromCache(String? eventId) {
+    if (eventId == null || eventId.isEmpty) return;
+    _locallyCreatedEvents.remove(eventId);
+    if (_cachedEvents != null) {
+      _cachedEvents!.removeWhere((event) => event.id == eventId);
+      eventRevision.value++;
+    }
+  }
 
   // Este servicio actúa como "Orquestador".
   static Future<List<ApiEvent>> getEvents({bool forceRefresh = false}) {
@@ -48,13 +67,14 @@ class Webservice {
         events = await _loadEvents();
       }
 
-      if (events.isNotEmpty) {
-        _cachedEvents = events;
+      final mergedEvents = _mergeLocallyCreatedEvents(events);
+      if (mergedEvents.isNotEmpty) {
+        _cachedEvents = mergedEvents;
       } else {
         _cachedEvents = null;
         _eventsRequest = null;
       }
-      return events;
+      return mergedEvents;
     } catch (_) {
       _eventsRequest = null;
       rethrow;
@@ -66,53 +86,45 @@ class Webservice {
     List<ApiEvent> benjaEvents = [];
 
     void publishPartialEvents() {
-      final allEvents = <ApiEvent>[
-        ...ticketmasterEvents,
-        ...benjaEvents,
-      ];
+      final allEvents = <ApiEvent>[...ticketmasterEvents, ...benjaEvents];
       if (allEvents.isEmpty) return;
 
-      final consolidated =
-          _filterExpiredEvents(_groupEvents(List<ApiEvent>.from(allEvents)));
+      final consolidated = _mergeLocallyCreatedEvents(allEvents);
       if (consolidated.isEmpty) return;
 
       _cachedEvents = consolidated;
       eventRevision.value++;
     }
 
-    final ticketmasterRequest =
-        TicketmasterService.getEvents().catchError((e) {
-      print('Error al obtener eventos de Ticketmaster: $e');
-      return <ApiEvent>[];
-    }).then((events) {
-      ticketmasterEvents = events;
-      publishPartialEvents();
-      return events;
-    });
+    final ticketmasterRequest = TicketmasterService.getEvents()
+        .catchError((e) {
+          print('Error al obtener eventos de Ticketmaster: $e');
+          return <ApiEvent>[];
+        })
+        .then((events) {
+          ticketmasterEvents = events;
+          publishPartialEvents();
+          return events;
+        });
 
-    final benjaRequest = ApibenjaService.getEvents().catchError((e) {
-      print('Error al obtener eventos de API Benja: $e');
-      return <ApiEvent>[];
-    }).then((events) {
-      benjaEvents = events;
-      publishPartialEvents();
-      return events;
-    });
+    final benjaRequest = ApibenjaService.getEvents()
+        .catchError((e) {
+          print('Error al obtener eventos de API Benja: $e');
+          return <ApiEvent>[];
+        })
+        .then((events) {
+          benjaEvents = events;
+          publishPartialEvents();
+          return events;
+        });
 
-    final results = await Future.wait([
-      ticketmasterRequest,
-      benjaRequest,
-    ]);
+    final results = await Future.wait([ticketmasterRequest, benjaRequest]);
 
-    final allEvents = <ApiEvent>[
-      ...results[0],
-      ...results[1],
-    ];
+    final allEvents = <ApiEvent>[...results[0], ...results[1]];
 
     print('Total de eventos consolidados: ${allEvents.length}');
 
-    final consolidated =
-        _filterExpiredEvents(_groupEvents(List<ApiEvent>.from(allEvents)));
+    final consolidated = _mergeLocallyCreatedEvents(allEvents);
     if (consolidated.isNotEmpty) {
       _cachedEvents = consolidated;
       eventRevision.value++;
@@ -120,12 +132,54 @@ class Webservice {
     return consolidated;
   }
 
+  static List<ApiEvent> _mergeLocallyCreatedEvents(List<ApiEvent> events) {
+    final merged = List<ApiEvent>.from(events);
+    final indexedEvents = <String, ApiEvent>{
+      for (final event in merged)
+        if (event.id != null && event.id!.isNotEmpty) event.id!: event,
+    };
+
+    for (final localEvent in _locallyCreatedEvents.values) {
+      final id = localEvent.id;
+      if (id == null || id.isEmpty) continue;
+
+      final remoteEvent = indexedEvents[id];
+      if (remoteEvent == null) {
+        merged.add(localEvent);
+      } else if ((remoteEvent.creatorId == null ||
+              remoteEvent.creatorId!.isEmpty) &&
+          localEvent.creatorId != null &&
+          localEvent.creatorId!.isNotEmpty) {
+        remoteEvent.creatorId = localEvent.creatorId;
+      }
+    }
+
+    return _consolidateEvents(merged);
+  }
+
+  static List<ApiEvent> _consolidateEvents(List<ApiEvent> events) =>
+      _filterExpiredEvents(_groupEvents(events));
+
   static List<ApiEvent> _filterExpiredEvents(List<ApiEvent> events) {
     final today = DateTime.now();
     final todayStart = DateTime(today.year, today.month, today.day);
     final activeEvents = <ApiEvent>[];
 
     for (final event in events) {
+      if (event.schedules.isNotEmpty) {
+        event.schedules.removeWhere((schedule) {
+          final referenceDate =
+              _extractDate(schedule.end ?? '') ?? _extractDate(schedule.start);
+          return referenceDate != null && referenceDate.isBefore(todayStart);
+        });
+        if (event.schedules.isEmpty) continue;
+        event.fechaInicio = event.schedules
+            .map((schedule) => schedule.start)
+            .join('\n');
+        activeEvents.add(event);
+        continue;
+      }
+
       final lines = event.fechaInicio
           .split('\n')
           .map((line) => line.trim())
@@ -159,8 +213,9 @@ class Webservice {
   }
 
   static DateTime? _extractDate(String value) {
-    final match = RegExp(r'(\d{4})[-/](\d{1,2})[-/](\d{1,2})')
-        .firstMatch(value);
+    final match = RegExp(
+      r'(\d{4})[-/](\d{1,2})[-/](\d{1,2})',
+    ).firstMatch(value);
     if (match != null) {
       return DateTime(
         int.parse(match.group(1)!),
@@ -169,8 +224,7 @@ class Webservice {
       );
     }
 
-    final dayFirst = RegExp(r'(\d{1,2})/(\d{1,2})/(\d{4})')
-        .firstMatch(value);
+    final dayFirst = RegExp(r'(\d{1,2})/(\d{1,2})/(\d{4})').firstMatch(value);
     if (dayFirst != null) {
       return DateTime(
         int.parse(dayFirst.group(3)!),
@@ -204,23 +258,44 @@ class Webservice {
           : (normalizedUrl.isNotEmpty ? normalizedUrl : (event.id ?? ''));
 
       if (key.isNotEmpty && groupedMap.containsKey(key)) {
-        // El evento ya existe en el mapa, agregamos la nueva fecha/hora a la lista
         var existingEvent = groupedMap[key]!;
-
-        // Formateamos la nueva fecha y hora para agregarla
-        String newDateTime = event.fechaInicio;
-        if (event.hora.isNotEmpty) {
-          newDateTime += " ${event.hora}";
+        if (event.id != null &&
+            event.id!.isNotEmpty &&
+            event.id != existingEvent.id &&
+            !existingEvent.alternateIds.contains(event.id)) {
+          existingEvent.alternateIds.add(event.id!);
         }
-
-        // Si la nueva fecha no está ya en la lista de fechas agrupadas
-        if (newDateTime.isNotEmpty &&
-            !existingEvent.fechaInicio.contains(newDateTime)) {
-          existingEvent.fechaInicio += "\n$newDateTime";
+        for (final alternateId in event.alternateIds) {
+          if (!existingEvent.alternateIds.contains(alternateId)) {
+            existingEvent.alternateIds.add(alternateId);
+          }
+        }
+        existingEvent.apiEventId ??= event.apiEventId;
+        for (final fechaId in event.fechaIds) {
+          if (!existingEvent.fechaIds.contains(fechaId)) {
+            existingEvent.fechaIds.add(fechaId);
+          }
+        }
+        for (final schedule in event.schedules) {
+          if (!existingEvent.schedules.any(
+            (existing) => _sameScheduleStart(existing.start, schedule.start),
+          )) {
+            existingEvent.schedules.add(schedule);
+          }
+        }
+        existingEvent.fechaId ??= event.fechaId;
+        if (existingEvent.schedules.isNotEmpty) {
+          existingEvent.fechaInicio = existingEvent.schedules
+              .map((schedule) => schedule.start)
+              .join('\n');
         }
       } else {
-        // Es la primera vez que vemos este evento, lo formateamos y lo guardamos
-        if (event.hora.isNotEmpty) {
+        if (event.schedules.isNotEmpty) {
+          event.fechaInicio = event.schedules
+              .map((schedule) => schedule.start)
+              .join('\n');
+          event.hora = '';
+        } else if (event.hora.isNotEmpty) {
           event.fechaInicio += " ${event.hora}";
           event.hora = '';
         }
@@ -230,5 +305,14 @@ class Webservice {
     }
 
     return groupedMap.values.toList();
+  }
+
+  static bool _sameScheduleStart(String first, String second) {
+    final firstDate = DateTime.tryParse(first);
+    final secondDate = DateTime.tryParse(second);
+    if (firstDate != null && secondDate != null) {
+      return firstDate.isAtSameMomentAs(secondDate);
+    }
+    return first.trim() == second.trim();
   }
 }

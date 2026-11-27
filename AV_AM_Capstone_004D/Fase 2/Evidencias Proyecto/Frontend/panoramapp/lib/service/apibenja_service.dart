@@ -7,6 +7,69 @@ class ApibenjaService {
     'https://mi-api-311188719547.us-central1.run.app/eventos', // Pegar la URL y agregar /eventos
   ];
 
+  static Future<ApiEvent> getEventDetails(String eventId) async {
+    final uri = Uri.parse('${_urls.first}/${Uri.encodeComponent(eventId)}');
+    final response = await http
+        .get(uri, headers: {'Accept': 'application/json'})
+        .timeout(const Duration(seconds: 15));
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw http.ClientException(
+        'No se pudo cargar el detalle del evento (${response.statusCode}).',
+        uri,
+      );
+    }
+
+    final decoded = jsonDecode(response.body);
+    if (decoded is! Map) {
+      throw const FormatException(
+        'El detalle del evento no tiene formato válido.',
+      );
+    }
+    final responseMap = Map<String, dynamic>.from(decoded);
+    final data = responseMap['data'] is Map
+        ? Map<String, dynamic>.from(responseMap['data'] as Map)
+        : responseMap;
+    return parseEvent(data);
+  }
+
+  static Future<List<String>> getEventDateIds(ApiEvent event) async {
+    final dateIds = <String>{...event.fechaIds};
+    if (dateIds.isNotEmpty) return dateIds.toList();
+
+    if (event.apiEventId != null && event.apiEventId!.isNotEmpty) {
+      try {
+        final details = await getEventDetails(event.apiEventId!);
+        dateIds.addAll(details.fechaIds);
+      } catch (_) {
+        // Try resolving by the event title if the stored backend ID is stale.
+      }
+    }
+    if (dateIds.isNotEmpty) return dateIds.toList();
+
+    final normalizedName = _normalizeEventName(event.nombre);
+    if (normalizedName.isEmpty) return [];
+
+    final matches = await getEvents();
+    final matchingEvents = matches
+        .where(
+          (candidate) =>
+              _normalizeEventName(candidate.nombre) == normalizedName,
+        )
+        .toList();
+    for (final candidate in matchingEvents) {
+      final candidateId = candidate.apiEventId ?? candidate.id;
+      if (candidateId == null || candidateId.isEmpty) continue;
+
+      final details = await getEventDetails(candidateId);
+      dateIds.addAll(details.fechaIds);
+    }
+    return dateIds.toList();
+  }
+
+  static String _normalizeEventName(String name) =>
+      name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), ' ').trim();
+
   static Future<List<ApiEvent>> getEvents() async {
     for (final url in _urls) {
       int attempts = 0;
@@ -14,10 +77,7 @@ class ApibenjaService {
         attempts++;
         try {
           final rspta = await http
-              .get(
-                Uri.parse(url),
-                headers: {'Accept': 'application/json'},
-              )
+              .get(Uri.parse(url), headers: {'Accept': 'application/json'})
               .timeout(const Duration(seconds: 25));
 
           if (rspta.statusCode == 200) {
@@ -45,17 +105,21 @@ class ApibenjaService {
               }
             }
 
-            print('Eventos obtenidos desde API Benja ($url): ${eventsJson.length}');
+            print(
+              'Eventos obtenidos desde API Benja ($url): ${eventsJson.length}',
+            );
             return eventsJson
                 .whereType<Map<String, dynamic>>()
-                .map((e) => _mapToApiEvent(e))
+                .map(parseEvent)
                 .toList();
           } else {
             print('Error en la API Benja ($url): ${rspta.statusCode}');
             break;
           }
         } catch (e) {
-          print('Excepción al consumir API Benja ($url) [Intento $attempts/2]: $e');
+          print(
+            'Excepción al consumir API Benja ($url) [Intento $attempts/2]: $e',
+          );
           if (attempts >= 2) break;
           // Espera breve antes de reintentar si el servidor estaba encendiendo (Cold Start)
           await Future.delayed(const Duration(milliseconds: 500));
@@ -66,9 +130,9 @@ class ApibenjaService {
     return <ApiEvent>[];
   }
 
-  static ApiEvent _mapToApiEvent(Map<String, dynamic> json) {
+  static ApiEvent parseEvent(Map<String, dynamic> json) {
     // 1. EXTRAER ID Y NOMBRE
-    final id = json['id']?.toString() ?? '';
+    final id = (json['id_evento'] ?? json['id'] ?? '').toString();
     final nombre = _asString(
       json['nombre'] ?? json['name'] ?? json['title'],
       fallback: 'Sin nombre',
@@ -93,12 +157,22 @@ class ApibenjaService {
     }
 
     // 3. EXTRAER FECHA Y HORA
+    final nestedDates = json['fechas'] is List
+        ? (json['fechas'] as List).whereType<Map>().toList()
+        : <Map>[];
+    final nestedStartDates = nestedDates
+        .map((fecha) => _asString(fecha['fecha_inicio']))
+        .where((date) => date.isNotEmpty)
+        .toList();
     String startDate = _asString(
       json['fecha_inicio'] ??
           json['fechaInicio'] ??
           json['date'] ??
           json['fecha'],
     );
+    if (nestedStartDates.isNotEmpty) {
+      startDate = nestedStartDates.join('\n');
+    }
     String startTime = _asString(json['hora'] ?? json['time']);
 
     if (startDate.isEmpty &&
@@ -113,17 +187,39 @@ class ApibenjaService {
     String endDate = _asString(
       json['fecha_termino'] ?? json['fechaTermino'] ?? '',
     );
+    if (endDate.isEmpty) {
+      final nestedEndDates = nestedDates
+          .map((fecha) => _asString(fecha['fecha_termino']))
+          .where((date) => date.isNotEmpty)
+          .toList();
+      if (nestedEndDates.isNotEmpty) {
+        endDate = nestedEndDates.reduce(
+          (latest, candidate) =>
+              (DateTime.tryParse(candidate) ?? DateTime(0)).isAfter(
+                DateTime.tryParse(latest) ?? DateTime(0),
+              )
+              ? candidate
+              : latest,
+        );
+      }
+    }
 
     // 4. EXTRAER LOCALIZACIÓN Y COORDENADAS
     String venueName = 'Lugar por confirmar';
-    String? lat = json['latitude']?.toString() ?? json['lat']?.toString();
+    String? lat =
+        json['latitud']?.toString() ??
+        json['latitude']?.toString() ??
+        json['lat']?.toString();
     String? lng =
+        json['longitud']?.toString() ??
         json['longitude']?.toString() ??
         json['lng']?.toString() ??
         json['lon']?.toString();
 
     if (json['localizacion'] != null && json['localizacion'] is String) {
       venueName = json['localizacion'];
+    } else if (json['direccion'] is String) {
+      venueName = json['direccion'];
     } else if (json['location'] != null && json['location'] is String) {
       venueName = json['location'];
     } else if (json['venue'] != null) {
@@ -142,10 +238,7 @@ class ApibenjaService {
         json['_embedded']['venues'] is List &&
         json['_embedded']['venues'].isNotEmpty) {
       var venue = json['_embedded']['venues'][0];
-      venueName = _asString(
-        venue['name'],
-        fallback: 'Lugar por confirmar',
-      );
+      venueName = _asString(venue['name'], fallback: 'Lugar por confirmar');
       if (venue['location'] != null) {
         lat ??= venue['location']['latitude']?.toString();
         lng ??= venue['location']['longitude']?.toString();
@@ -154,7 +247,7 @@ class ApibenjaService {
 
     // 5. EXTRAER IMAGEN
     String imageUrl = _asString(
-      json['imagen'] ?? json['image'] ?? json['imageUrl'],
+      json['imagen'] ?? json['imagen_url'] ?? json['image'] ?? json['imageUrl'],
     );
 
     if (imageUrl.isEmpty &&
@@ -177,7 +270,10 @@ class ApibenjaService {
 
     // 6. EXTRAER FUENTE DE INFORMACIÓN / URL
     final String eventUrl = _asString(
-      json['fuente_info'] ?? json['fuenteInfo'] ?? json['url'],
+      json['fuente_info'] ??
+          json['fuenteInfo'] ??
+          json['url_pagina_compra'] ??
+          json['url'],
       fallback: 'API Benja',
     );
 
@@ -196,6 +292,7 @@ class ApibenjaService {
 
     return ApiEvent(
       id: id,
+      apiEventId: id.isEmpty ? null : id,
       nombre: nombre,
       descripcion: description,
       fechaInicio: startDate,
@@ -204,10 +301,35 @@ class ApibenjaService {
       localizacion: venueName,
       latitude: lat,
       longitude: lng,
+      fechaId: (json['id_fecha'] ?? json['fecha_id'] ?? json['idFecha'])
+          ?.toString(),
+      fechaIds: nestedDates
+          .map((fecha) => _asString(fecha['id_fecha']))
+          .where((id) => id.isNotEmpty)
+          .toSet()
+          .toList(),
+      schedules: nestedDates
+          .map(
+            (fecha) => ApiEventSchedule(
+              idFecha: fecha['id_fecha']?.toString(),
+              start: _asString(fecha['fecha_inicio']),
+              end: fecha['fecha_termino']?.toString(),
+              price: fecha['precio_desde']?.toString(),
+            ),
+          )
+          .where((date) => date.start.isNotEmpty)
+          .toList(),
       imagen: imageUrl,
       fuenteInfo: eventUrl,
       organizador: promoter,
-      creatorId: json['id_usuario_creador']?.toString() ??
+      comuna: _asString(json['nombre_comuna'] ?? json['comuna']),
+      tipoEvento: _asString(
+        json['nombre_tipo_evento'] ??
+            json['tipo_evento'] ??
+            json['tipo_evento_nombre'],
+      ),
+      creatorId:
+          json['id_usuario_creador']?.toString() ??
           json['creador_id']?.toString() ??
           json['id_usuario']?.toString(),
     );

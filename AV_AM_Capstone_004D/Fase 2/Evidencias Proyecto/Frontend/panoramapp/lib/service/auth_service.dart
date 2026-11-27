@@ -25,10 +25,10 @@ class AuthUser {
     final user = json['usuario'] is Map
         ? Map<String, dynamic>.from(json['usuario'] as Map)
         : json['user'] is Map
-            ? Map<String, dynamic>.from(json['user'] as Map)
-            : json['data'] is Map
-                ? Map<String, dynamic>.from(json['data'] as Map)
-                : json;
+        ? Map<String, dynamic>.from(json['user'] as Map)
+        : json['data'] is Map
+        ? Map<String, dynamic>.from(json['data'] as Map)
+        : json;
 
     return AuthUser(
       id: (user['id'] ?? user['id_usuario'] ?? '').toString(),
@@ -43,10 +43,10 @@ class AuthUser {
 }
 
 class AuthService {
-  static const String _baseUrl =
+  static const String apiBaseUrl =
       'https://mi-api-311188719547.us-central1.run.app';
-  static const String _loginUrl = '$_baseUrl/login';
-  static const String _usersUrl = '$_baseUrl/usuarios';
+  static const String _loginUrl = '$apiBaseUrl/login';
+  static const String _usersUrl = '$apiBaseUrl/usuarios';
   static const String _sessionUserKey = 'panoramapp.auth.user';
   static const String _sessionTokenKey = 'panoramapp.auth.token';
 
@@ -63,10 +63,7 @@ class AuthService {
               'Accept': 'application/json',
               'Content-Type': 'application/json',
             },
-            body: jsonEncode({
-              'nombre': name.trim(),
-              'contrasena': password,
-            }),
+            body: jsonEncode({'nombre': name.trim(), 'contrasena': password}),
           )
           .timeout(const Duration(seconds: 15));
     } on TimeoutException {
@@ -82,9 +79,7 @@ class AuthService {
         'No se pudo completar la conexión con el servidor.',
       );
     } on http.ClientException catch (error) {
-      throw AuthException(
-        'Error de conexión: ${error.message}',
-      );
+      throw AuthException('Error de conexión: ${error.message}');
     }
 
     dynamic decoded;
@@ -109,7 +104,9 @@ class AuthService {
     }
 
     if (decoded is! Map) {
-      throw const AuthException('La respuesta de inicio de sesión no es válida.');
+      throw const AuthException(
+        'La respuesta de inicio de sesión no es válida.',
+      );
     }
 
     final userMap = Map<String, dynamic>.from(decoded);
@@ -131,9 +128,7 @@ class AuthService {
     String? token,
   }) async {
     final uri = Uri.parse('$_usersUrl/$userId');
-    final headers = <String, String>{
-      'Accept': 'application/json',
-    };
+    final headers = <String, String>{'Accept': 'application/json'};
     if (token != null && token.isNotEmpty) {
       headers['Authorization'] = 'Bearer $token';
     }
@@ -207,8 +202,7 @@ class AuthService {
     final responseMap = Map<String, dynamic>.from(decoded);
     if (responseMap['success'] == false) {
       throw AuthException(
-        responseMap['message']?.toString() ??
-            'No se pudo crear el usuario.',
+        responseMap['message']?.toString() ?? 'No se pudo crear el usuario.',
       );
     }
 

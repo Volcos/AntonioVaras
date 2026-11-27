@@ -48,9 +48,7 @@ class _HomeState extends State<Home> {
   void _onEventsChanged() {
     if (!mounted) return;
     setState(() {
-      _eventsFuture = Future.value(
-        Webservice.cachedEvents,
-      );
+      _eventsFuture = Future.value(Webservice.cachedEvents);
     });
   }
 
@@ -187,6 +185,11 @@ class _HomeState extends State<Home> {
                   right: 20,
                   child: GlassNavBar(
                     currentIndex: index,
+                    backgroundColor:
+                        index == 1 &&
+                            Theme.of(context).brightness == Brightness.light
+                        ? const Color(0x991C1C1E)
+                        : const Color(0x331C1C1E),
                     onIndexChanged: (newIndex) {
                       if (newIndex == 1 && !_mapInitialized) {
                         _mapInitialized = true;
@@ -367,9 +370,7 @@ class _HomeState extends State<Home> {
                           builder: (context, snapshot) {
                             final bytes = snapshot.data;
                             return bytes == null
-                                ? const ColoredBox(
-                                    color: Color(0xFF202020),
-                                  )
+                                ? const ColoredBox(color: Color(0xFF202020))
                                 : Image.memory(
                                     bytes,
                                     fit: BoxFit.cover,
@@ -418,9 +419,30 @@ class _HomeState extends State<Home> {
                   child: BackdropFilter(
                     filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
                     child: GestureDetector(
-                      onTap: () {
-                        // Usamos el manager para guardar/borrar el evento
-                        BookmarkManager().toggleBookmark(event);
+                      onTap: () async {
+                        try {
+                          final result = await BookmarkManager().toggleBookmark(
+                            event,
+                          );
+                          if (result.reminderUnavailable && context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Evento guardado localmente, pero falta el ID de fecha para activar el recordatorio.',
+                                ),
+                              ),
+                            );
+                          }
+                        } catch (error) {
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'No se pudo guardar el evento/recordatorio: $error',
+                              ),
+                            ),
+                          );
+                        }
                       },
                       child: Container(
                         padding: const EdgeInsets.all(10),
@@ -502,9 +524,9 @@ class _HomeState extends State<Home> {
                                               ? event.localizacion
                                               : 'Lugar por confirmar');
                                     return Text(
-                                      event.fechaInicio.contains('\n')
+                                      event.hasMultipleSchedules
                                           ? 'Múltiples Fechas • $location'
-                                          : '${event.fechaInicio} • $location',
+                                          : '${event.displayDate} • $location',
                                       style: const TextStyle(
                                         color: Color(0xB3FFFFFF),
                                         fontSize: 12,
@@ -562,12 +584,14 @@ class GlassNavBar extends StatefulWidget {
   final int currentIndex;
   final ValueChanged<int> onIndexChanged;
   final List<NavItem> items;
+  final Color backgroundColor;
 
   const GlassNavBar({
     super.key,
     required this.currentIndex,
     required this.onIndexChanged,
     required this.items,
+    required this.backgroundColor,
   });
 
   @override
@@ -645,7 +669,7 @@ class _GlassNavBarState extends State<GlassNavBar> {
               child: Container(
                 height: 75,
                 decoration: BoxDecoration(
-                  color: const Color(0x331C1C1E),
+                  color: widget.backgroundColor,
                   borderRadius: BorderRadius.circular(40),
                   border: Border.all(
                     color: const Color(0x33FFFFFF),

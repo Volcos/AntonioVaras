@@ -5,6 +5,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import 'package:capstone/service/auth_service.dart';
+import 'package:capstone/service/push_notification_service.dart';
 import 'package:capstone/views/Home.dart';
 import 'package:capstone/views/register_view.dart';
 
@@ -38,15 +39,34 @@ class _LoginViewState extends State<LoginView> {
         name: _nameController.text,
         password: _passwordController.text,
       );
+      String? notificationError;
+      final token = await AuthService.getToken();
+      if (token != null && token.isNotEmpty) {
+        try {
+          await PushNotificationService.registerDevice(token);
+        } catch (error) {
+          notificationError = error.toString();
+        }
+      }
       if (!mounted) return;
-      Navigator.of(context).pushReplacement(
-        CupertinoPageRoute(builder: (_) => const Home()),
-      );
+      if (notificationError != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Sesión iniciada, pero no se pudo registrar el dispositivo: '
+              '$notificationError',
+            ),
+          ),
+        );
+      }
+      Navigator.of(
+        context,
+      ).pushReplacement(CupertinoPageRoute(builder: (_) => const Home()));
     } on AuthException catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.message)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -55,8 +75,8 @@ class _LoginViewState extends State<LoginView> {
             error is TimeoutException
                 ? 'El servidor tardó demasiado en responder.'
                 : error is SocketException
-                    ? 'No hay conexión con el servidor.'
-                    : 'No fue posible conectar con el servidor: $error',
+                ? 'No hay conexión con el servidor.'
+                : 'No fue posible conectar con el servidor: $error',
           ),
         ),
       );
@@ -112,10 +132,7 @@ class _LoginViewState extends State<LoginView> {
                     const Text(
                       'Inicia sesión para continuar',
                       textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.white60,
-                        fontSize: 16,
-                      ),
+                      style: TextStyle(color: Colors.white60, fontSize: 16),
                     ),
                     const SizedBox(height: 36),
                     TextFormField(
@@ -129,10 +146,7 @@ class _LoginViewState extends State<LoginView> {
                         if (text.isEmpty) return 'Ingresa tu usuario';
                         return null;
                       },
-                      decoration: _decoration(
-                        'Usuario',
-                        CupertinoIcons.person,
-                      ),
+                      decoration: _decoration('Usuario', CupertinoIcons.person),
                     ),
                     const SizedBox(height: 14),
                     TextFormField(
@@ -144,22 +158,20 @@ class _LoginViewState extends State<LoginView> {
                       validator: (value) => value == null || value.isEmpty
                           ? 'Ingresa tu contraseña'
                           : null,
-                      decoration: _decoration(
-                        'Contraseña',
-                        CupertinoIcons.lock,
-                      ).copyWith(
-                        suffixIcon: IconButton(
-                          onPressed: () => setState(
-                            () => _passwordVisible = !_passwordVisible,
+                      decoration: _decoration('Contraseña', CupertinoIcons.lock)
+                          .copyWith(
+                            suffixIcon: IconButton(
+                              onPressed: () => setState(
+                                () => _passwordVisible = !_passwordVisible,
+                              ),
+                              icon: Icon(
+                                _passwordVisible
+                                    ? CupertinoIcons.eye_slash
+                                    : CupertinoIcons.eye,
+                                color: Colors.white54,
+                              ),
+                            ),
                           ),
-                          icon: Icon(
-                            _passwordVisible
-                                ? CupertinoIcons.eye_slash
-                                : CupertinoIcons.eye,
-                            color: Colors.white54,
-                          ),
-                        ),
-                      ),
                     ),
                     const SizedBox(height: 24),
                     FilledButton(
@@ -191,20 +203,20 @@ class _LoginViewState extends State<LoginView> {
                     ),
                     const SizedBox(height: 14),
                     TextButton(
-                          onPressed: () {
-                            Navigator.of(context).push(
-                              CupertinoPageRoute(
-                                builder: (_) => const RegisterView(),
-                              ),
-                            );
-                          },
-                          child: const Text(
-                            'Crear cuenta',
-                            style: TextStyle(
-                              color: Colors.pinkAccent,
-                              fontWeight: FontWeight.w600,
-                            ),
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          CupertinoPageRoute(
+                            builder: (_) => const RegisterView(),
                           ),
+                        );
+                      },
+                      child: const Text(
+                        'Crear cuenta',
+                        style: TextStyle(
+                          color: Colors.pinkAccent,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 6),
                     TextButton(

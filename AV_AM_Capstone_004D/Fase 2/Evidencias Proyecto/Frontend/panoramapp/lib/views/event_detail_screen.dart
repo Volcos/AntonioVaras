@@ -10,6 +10,7 @@ import 'package:capstone/service/auth_service.dart';
 import 'package:capstone/service/create_event_service.dart';
 import 'package:capstone/service/web_service.dart';
 import 'package:capstone/views/map.dart';
+import 'package:capstone/views/create_event.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:flutter/services.dart';
@@ -39,6 +40,29 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     if (mounted) setState(() => _user = user);
   }
 
+  Future<void> _toggleSavedEvent() async {
+    try {
+      final result = await BookmarkManager().toggleBookmark(event);
+      if (!mounted) return;
+      if (result.reminderUnavailable) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Evento guardado localmente, pero la API no entregó el ID de la fecha para activar el recordatorio.',
+            ),
+          ),
+        );
+      }
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('No se pudo guardar el evento/recordatorio: $error'),
+        ),
+      );
+    }
+  }
+
   bool get _canDeleteEvent {
     final user = _user;
     if (user == null) return false;
@@ -46,15 +70,27 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     if (user.userType != 3) return false;
 
     final creatorId = event.creatorId?.trim();
-    if (creatorId != null &&
-        creatorId.isNotEmpty &&
-        creatorId == user.id) {
+    if (creatorId != null && creatorId.isNotEmpty && creatorId == user.id) {
       return true;
     }
 
     return event.organizador.trim().isNotEmpty &&
         event.organizador.trim().toLowerCase() ==
             user.name.trim().toLowerCase();
+  }
+
+  bool get _hasValidTicketUrl {
+    final url = event.fuenteInfo.trim();
+    if (url.isEmpty) return false;
+    final lower = url.toLowerCase();
+    if (lower == 'ticketmaster' ||
+        lower == 'null' ||
+        lower == 'undefined' ||
+        lower == 'n/a' ||
+        lower == 'none') {
+      return false;
+    }
+    return lower.startsWith('http://') || lower.startsWith('https://');
   }
 
   Future<void> _launchUrl(BuildContext context) async {
@@ -97,9 +133,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            style: FilledButton.styleFrom(
-              backgroundColor: Colors.redAccent,
-            ),
+            style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
             child: const Text('Eliminar'),
           ),
         ],
@@ -111,9 +145,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     if (token == null || token.isEmpty) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Debes iniciar sesión nuevamente.'),
-        ),
+        const SnackBar(content: Text('Debes iniciar sesión nuevamente.')),
       );
       return;
     }
@@ -123,21 +155,19 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
         eventId: event.id ?? '',
         token: token,
       );
+      Webservice.removeEventFromCache(event.id);
+      BookmarkManager().removeIfSaved(event);
       await Webservice.refreshEvents();
       if (!mounted) return;
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Evento eliminado correctamente.'),
-        ),
+        const SnackBar(content: Text('Evento eliminado correctamente.')),
       );
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            error.toString().replaceFirst('Exception: ', ''),
-          ),
+          content: Text(error.toString().replaceFirst('Exception: ', '')),
         ),
       );
     }
@@ -159,9 +189,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
               height: MediaQuery.of(context).size.height * 0.65,
               child: event.imagen.startsWith('data:image/')
                   ? FutureBuilder<Uint8List?>(
-                      future: Base64ImageCache.decodeBase64Async(
-                        event.imagen,
-                      ),
+                      future: Base64ImageCache.decodeBase64Async(event.imagen),
                       builder: (context, snapshot) {
                         final bytes = snapshot.data;
                         return bytes == null
@@ -235,6 +263,17 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        _buildGlassButton(CupertinoIcons.pencil, () async {
+                          await Navigator.push(
+                            context,
+                            CupertinoPageRoute(
+                              builder: (_) =>
+                                  CreateEventView(eventToEdit: event),
+                            ),
+                          );
+                          setState(() {});
+                        }, iconColor: Colors.amberAccent),
+                        const SizedBox(width: 10),
                         _buildGlassButton(
                           CupertinoIcons.trash,
                           _deleteEvent,
@@ -249,7 +288,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                               isSaved
                                   ? CupertinoIcons.bookmark_fill
                                   : CupertinoIcons.bookmark,
-                              () => BookmarkManager().toggleBookmark(event),
+                              _toggleSavedEvent,
                               iconColor: isSaved
                                   ? Colors.pinkAccent
                                   : Colors.white,
@@ -259,20 +298,20 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                       ],
                     )
                   else
-                  // Envolvemos el botón de guardar en el escuchador para que se pinte si está guardado
-                  ValueListenableBuilder<List<ApiEvent>>(
-                    valueListenable: BookmarkManager().savedEvents,
-                    builder: (context, saved, _) {
-                      final isSaved = BookmarkManager().isSaved(event);
-                      return _buildGlassButton(
-                        isSaved
-                            ? CupertinoIcons.bookmark_fill
-                            : CupertinoIcons.bookmark,
-                        () => BookmarkManager().toggleBookmark(event),
-                        iconColor: isSaved ? Colors.pinkAccent : Colors.white,
-                      );
-                    },
-                  ),
+                    // Envolvemos el botón de guardar en el escuchador para que se pinte si está guardado
+                    ValueListenableBuilder<List<ApiEvent>>(
+                      valueListenable: BookmarkManager().savedEvents,
+                      builder: (context, saved, _) {
+                        final isSaved = BookmarkManager().isSaved(event);
+                        return _buildGlassButton(
+                          isSaved
+                              ? CupertinoIcons.bookmark_fill
+                              : CupertinoIcons.bookmark,
+                          _toggleSavedEvent,
+                          iconColor: isSaved ? Colors.pinkAccent : Colors.white,
+                        );
+                      },
+                    ),
                 ],
               ),
             ),
@@ -305,7 +344,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                       runSpacing: 10,
                       children: [
                         // Mostrar múltiples fechas en la pantalla de detalle
-                        if (event.fechaInicio.contains('\n'))
+                        if (event.hasMultipleSchedules)
                           _buildInfoPill(
                             CupertinoIcons.calendar,
                             'Varias fechas (Ver abajo)',
@@ -313,7 +352,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                         else
                           _buildInfoPill(
                             CupertinoIcons.calendar,
-                            event.fechaInicio,
+                            event.displayDate,
                           ),
 
                         if (event.hora.isNotEmpty)
@@ -357,7 +396,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                     const SizedBox(height: 24),
 
                     // Mostrar el listado de fechas si el evento fue agrupado
-                    if (event.fechaInicio.contains('\n')) ...[
+                    if (event.hasMultipleSchedules) ...[
                       const Text(
                         'Fechas disponibles',
                         style: TextStyle(
@@ -378,8 +417,9 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                           ),
                         ),
                         child: Text(
-                          event
-                              .fechaInicio, // Imprime cada fecha en una nueva línea
+                          event.schedules
+                              .map((schedule) => schedule.displayRange)
+                              .join('\n'),
                           style: const TextStyle(
                             color: Color(0xB3FFFFFF),
                             fontSize: 15,
@@ -419,7 +459,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
               ),
             ),
 
-            // Botón de acción flotante (Comprar / Visitar)
+            // Botón de acción flotante (Comprar / Entrada Liberada)
             Positioned(
               bottom: 40,
               left: 24,
@@ -428,26 +468,58 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                 borderRadius: BorderRadius.circular(30),
                 child: BackdropFilter(
                   filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                  child: GestureDetector(
-                    onTap: () => _launchUrl(context),
-                    child: Container(
-                      height: 60,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(30),
-                      ),
-                      child: const Center(
-                        child: Text(
-                          'Conseguir Entradas',
-                          style: TextStyle(
-                            color: Colors.black,
-                            fontSize: 17,
-                            fontWeight: FontWeight.w600,
+                  child: _hasValidTicketUrl
+                      ? GestureDetector(
+                          onTap: () => _launchUrl(context),
+                          child: Container(
+                            height: 60,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                            child: const Center(
+                              child: Text(
+                                'Conseguir Entradas',
+                                style: TextStyle(
+                                  color: Colors.black,
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                        )
+                      : Container(
+                          height: 60,
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          decoration: BoxDecoration(
+                            color: const Color(
+                              0xFF2E7D32,
+                            ).withValues(alpha: 0.85),
+                            borderRadius: BorderRadius.circular(30),
+                            border: Border.all(color: Colors.white24, width: 1),
+                          ),
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                CupertinoIcons.ticket_fill,
+                                color: Colors.white,
+                                size: 22,
+                              ),
+                              SizedBox(width: 10),
+                              Text(
+                                'Entrada Liberada',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: 0.3,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                      ),
-                    ),
-                  ),
                 ),
               ),
             ),

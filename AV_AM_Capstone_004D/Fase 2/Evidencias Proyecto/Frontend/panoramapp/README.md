@@ -66,7 +66,7 @@ flutter build apk --release
 - **Sistema de Notificaciones Locales**: Notificaciones push inmediatas al registrar o crear un nuevo evento y notificaciones programadas automáticamente para la fecha de término del evento (`flutter_local_notifications`).
 - **Cumplimiento Legal de Privacidad y Términos de Uso**: 
   - Proceso de registro con verificación obligatoria (Opt-in) de **Términos y Condiciones** y **Política de Privacidad**.
-  - Ajustado a la **Ley N° 19.628 sobre Protección de Datos Personales de Chile** y estándares internacionales (GDPR).
+  - Ajustado a la **Ley N.º 21.855 de Protección de Datos Personales de Chile** y estándares internacionales (GDPR).
   - Incluye ventanas modales con información detallada sobre el tratamiento de datos y derechos **ARCO** (Acceso, Rectificación, Cancelación y Oposición).
 
 ##  Arquitectura
