@@ -1,7 +1,7 @@
 import { dispararFlujoScraping } from './src/queues/scraperFlow.js';
 import { ejecutarIngestaTicketmaster } from './src/queues/ticketmasterFlow.js';
 import pool from './src/DBConnection/neon_connection.js';
-
+// Texto de prueba para enlace a gcp
 async function main() {
   const errores = [];
 
