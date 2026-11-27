@@ -9,11 +9,7 @@ class MapLocationPickerView extends StatefulWidget {
   final double? initialLat;
   final double? initialLng;
 
-  const MapLocationPickerView({
-    super.key,
-    this.initialLat,
-    this.initialLng,
-  });
+  const MapLocationPickerView({super.key, this.initialLat, this.initialLng});
 
   @override
   State<MapLocationPickerView> createState() => _MapLocationPickerViewState();
@@ -21,7 +17,10 @@ class MapLocationPickerView extends StatefulWidget {
 
 class _MapLocationPickerViewState extends State<MapLocationPickerView> {
   static const LatLng _santiagoCenter = LatLng(-33.4488897, -70.6692655);
-  static const String _mapStyle = 'https://tiles.openfreemap.org/styles/fiord';
+  static const String _lightMapStyle =
+      'https://tiles.openfreemap.org/styles/liberty';
+  static const String _darkMapStyle =
+      'https://tiles.openfreemap.org/styles/fiord';
 
   MapLibreMapController? _mapController;
   late LatLng _selectedLocation;
@@ -61,9 +60,7 @@ class _MapLocationPickerViewState extends State<MapLocationPickerView> {
   }
 
   void _updateSelectedLocationMarker(LatLng latLng) {
-    _mapController?.animateCamera(
-      CameraUpdate.newLatLng(latLng),
-    );
+    _mapController?.animateCamera(CameraUpdate.newLatLng(latLng));
   }
 
   void _reverseGeocode(LatLng location) {
@@ -87,7 +84,8 @@ class _MapLocationPickerViewState extends State<MapLocationPickerView> {
       } catch (_) {
         if (mounted) {
           setState(() {
-            _addressPreview = 'Lat: ${location.latitude.toStringAsFixed(5)}, Lng: ${location.longitude.toStringAsFixed(5)}';
+            _addressPreview =
+                'Lat: ${location.latitude.toStringAsFixed(5)}, Lng: ${location.longitude.toStringAsFixed(5)}';
             _loadingAddress = false;
           });
         }
@@ -97,15 +95,22 @@ class _MapLocationPickerViewState extends State<MapLocationPickerView> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
+        backgroundColor: theme.colorScheme.surface,
+        foregroundColor: theme.colorScheme.onSurface,
         title: const Text('Seleccionar Ubicación'),
         actions: [
           IconButton(
-            icon: const Icon(CupertinoIcons.check_mark_circled, color: Colors.pinkAccent, size: 28),
+            icon: const Icon(
+              CupertinoIcons.check_mark_circled,
+              color: Colors.pinkAccent,
+              size: 28,
+            ),
             onPressed: () {
               Navigator.pop(context, _selectedLocation);
             },
@@ -120,7 +125,7 @@ class _MapLocationPickerViewState extends State<MapLocationPickerView> {
               zoom: 14,
             ),
             minMaxZoomPreference: const MinMaxZoomPreference(3, 18),
-            styleString: _mapStyle,
+            styleString: isDark ? _darkMapStyle : _lightMapStyle,
             trackCameraPosition: true,
             onMapCreated: (controller) {
               _mapController = controller;
@@ -150,7 +155,7 @@ class _MapLocationPickerViewState extends State<MapLocationPickerView> {
             child: Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: const Color(0xFF1E1E1E),
+                color: theme.colorScheme.surface,
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: const [
                   BoxShadow(
@@ -166,7 +171,11 @@ class _MapLocationPickerViewState extends State<MapLocationPickerView> {
                 children: [
                   Row(
                     children: [
-                      const Icon(CupertinoIcons.map_pin_ellipse, color: Colors.pinkAccent, size: 20),
+                      const Icon(
+                        CupertinoIcons.map_pin_ellipse,
+                        color: Colors.pinkAccent,
+                        size: 20,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
@@ -174,10 +183,9 @@ class _MapLocationPickerViewState extends State<MapLocationPickerView> {
                               ? 'Buscando dirección...'
                               : (_addressPreview ?? 'Ubicación seleccionada'),
                           style: const TextStyle(
-                            color: Colors.white,
                             fontSize: 13,
                             fontWeight: FontWeight.w500,
-                          ),
+                          ).copyWith(color: theme.colorScheme.onSurface),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
