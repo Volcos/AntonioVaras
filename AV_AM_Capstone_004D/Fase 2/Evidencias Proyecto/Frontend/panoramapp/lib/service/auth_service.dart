@@ -267,6 +267,51 @@ class AuthService {
     }
   }
 
+  static Future<void> deleteAccount({
+    required String userId,
+    required String password,
+    String? token,
+  }) async {
+    final headers = <String, String>{
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+    };
+    if (token != null && token.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $token';
+    }
+
+    final uri = Uri.parse('$_usersUrl/${Uri.encodeComponent(userId)}');
+    final response = await http
+        .delete(
+          uri,
+          headers: headers,
+          body: jsonEncode({'contrasena': password}),
+        )
+        .timeout(const Duration(seconds: 15));
+
+    dynamic decoded;
+    try {
+      decoded = jsonDecode(response.body);
+    } on FormatException {
+      decoded = null;
+    }
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      final message = decoded is Map
+          ? (decoded['message'] ?? decoded['error'])?.toString()
+          : null;
+      throw AuthException(
+        message ?? 'No se pudo eliminar la cuenta (${response.statusCode}).',
+      );
+    }
+
+    if (decoded is Map && decoded['success'] == false) {
+      throw AuthException(
+        decoded['message']?.toString() ?? 'No se pudo eliminar la cuenta.',
+      );
+    }
+  }
+
   static Future<void> logout() async {
     try {
       final prefs = await SharedPreferences.getInstance();

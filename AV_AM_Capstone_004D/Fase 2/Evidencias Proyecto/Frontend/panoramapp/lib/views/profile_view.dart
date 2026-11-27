@@ -137,6 +137,120 @@ class _ProfileViewState extends State<ProfileView> {
     );
   }
 
+  Future<void> _deleteAccount() async {
+    final user = _user;
+    if (user == null || user.id.isEmpty) return;
+
+    final passwordController = TextEditingController();
+    String? validationMessage;
+    final password = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          backgroundColor: const Color(0xFF202020),
+          title: const Text(
+            'Eliminar cuenta',
+            style: TextStyle(color: Colors.white),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Esta acción es permanente. Escribe tu contraseña para confirmar.',
+                style: TextStyle(color: Colors.white70),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: passwordController,
+                autofocus: true,
+                obscureText: true,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  labelText: 'Contraseña',
+                  errorText: validationMessage,
+                  labelStyle: const TextStyle(color: Colors.white60),
+                  enabledBorder: const UnderlineInputBorder(
+                    borderSide: BorderSide(color: Colors.white38),
+                  ),
+                ),
+                onChanged: (_) {
+                  if (validationMessage != null) {
+                    setDialogState(() => validationMessage = null);
+                  }
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
+              onPressed: () {
+                if (passwordController.text.trim().length < 6) {
+                  setDialogState(
+                    () => validationMessage =
+                        'La contraseña debe tener al menos 6 caracteres.',
+                  );
+                  return;
+                }
+                Navigator.pop(dialogContext, passwordController.text);
+              },
+              child: const Text('Eliminar cuenta'),
+            ),
+          ],
+        ),
+      ),
+    );
+    passwordController.dispose();
+    if (password == null || !mounted) return;
+
+    try {
+      showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const AlertDialog(
+          backgroundColor: Color(0xFF202020),
+          content: Row(
+            children: [
+              CircularProgressIndicator(color: Colors.pinkAccent),
+              SizedBox(width: 20),
+              Expanded(
+                child: Text(
+                  'Eliminando cuenta...',
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+      final token = await AuthService.getToken();
+      await AuthService.deleteAccount(
+        userId: user.id,
+        password: password,
+        token: token,
+      );
+      await AuthService.logout();
+      if (!mounted) return;
+      Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+        CupertinoPageRoute(builder: (_) => const LoginView()),
+        (_) => false,
+      );
+    } catch (error) {
+      if (!mounted) return;
+      Navigator.of(context, rootNavigator: true).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.toString().replaceFirst('Exception: ', '')),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
@@ -500,6 +614,24 @@ class _ProfileViewState extends State<ProfileView> {
                       style: const TextStyle(color: Colors.white),
                     ),
                   ),
+                  if (_user != null) ...[
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(
+                        CupertinoIcons.delete,
+                        color: Colors.redAccent,
+                      ),
+                      title: const Text(
+                        'Eliminar cuenta',
+                        style: TextStyle(color: Colors.redAccent),
+                      ),
+                      subtitle: const Text(
+                        'Eliminar permanentemente tu cuenta',
+                        style: TextStyle(color: Colors.white60, fontSize: 12),
+                      ),
+                      onTap: _deleteAccount,
+                    ),
+                  ],
                   const Divider(color: Colors.white12),
                   const SizedBox(height: 8),
                   const Text(
