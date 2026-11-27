@@ -4,7 +4,7 @@ import fastifyJwt from '@fastify/jwt';
 import { test } from 'node:test';
 import rutasNotificaciones from './notificaciones.js';
 
-async function crearServidor({ consultar } = {}) {
+async function crearServidor({ consultar, enviarMensaje } = {}) {
     const consultas = [];
     const app = Fastify();
     app.decorate('sql', async (strings, ...valores) => {
@@ -23,7 +23,7 @@ async function crearServidor({ consultar } = {}) {
             });
         }
     });
-    await app.register(rutasNotificaciones);
+    await app.register(rutasNotificaciones, { enviarMensaje });
 
     return {
         app,
@@ -115,6 +115,113 @@ test('rechaza solicitudes no autenticadas y protege el worker con la clave cron'
         assert.equal(sinSesion.statusCode, 401);
         assert.equal(sinClaveCron.statusCode, 401);
         assert.equal(consultas.length, 0);
+    } finally {
+        if (cronSecretOriginal === undefined) {
+            delete process.env.CRON_SECRET;
+        } else {
+            process.env.CRON_SECRET = cronSecretOriginal;
+        }
+        await app.close();
+    }
+});
+
+test('envía las notificaciones pendientes y marca el recordatorio como enviado', async () => {
+    const cronSecretOriginal = process.env.CRON_SECRET;
+    process.env.CRON_SECRET = 'test-cron-secret';
+    const mensajes = [];
+    const consultas = [];
+    const pendiente = {
+        id_registro: 31,
+        fcm_token: 'token-fcm',
+        id_evento: 42,
+        nombre_evento: 'Concierto',
+        direccion: 'Teatro Municipal'
+    };
+    const { app } = await crearServidor({
+        consultar: (consulta) => {
+            consultas.push(consulta);
+            return consulta.includes('ri.id_registro') ? [pendiente] : [];
+        },
+        enviarMensaje: async (mensaje) => mensajes.push(mensaje)
+    });
+
+    try {
+        const response = await app.inject({
+            method: 'POST',
+            url: '/tasks/notificaciones',
+            headers: { 'x-cron-key': 'test-cron-secret' }
+        });
+
+        assert.equal(response.statusCode, 200);
+        assert.deepEqual(response.json(), {
+            success: true,
+            procesados: 1,
+            enviados: 1
+        });
+        assert.deepEqual(mensajes, [{
+            token: 'token-fcm',
+            notification: {
+                title: '¡Tu evento está por comenzar!',
+                body: 'Concierto en Teatro Municipal'
+            },
+            data: {
+                id_evento: '42',
+                tipo: 'RECORDATORIO_EVENTO'
+            }
+        }]);
+        assert.ok(consultas.some((consulta) => (
+            consulta.includes('SET recordatorio_enviado = TRUE')
+        )));
+    } finally {
+        if (cronSecretOriginal === undefined) {
+            delete process.env.CRON_SECRET;
+        } else {
+            process.env.CRON_SECRET = cronSecretOriginal;
+        }
+        await app.close();
+    }
+});
+
+test('devuelve error si falla el envío de una notificación', async () => {
+    const cronSecretOriginal = process.env.CRON_SECRET;
+    process.env.CRON_SECRET = 'test-cron-secret';
+    const consultas = [];
+    const pendiente = {
+        id_registro: 31,
+        fcm_token: 'token-fcm',
+        id_evento: 42,
+        nombre_evento: 'Concierto',
+        direccion: 'Teatro Municipal'
+    };
+    const { app } = await crearServidor({
+        consultar: (consulta) => {
+            consultas.push(consulta);
+            return consulta.includes('ri.id_registro') ? [pendiente] : [];
+        },
+        enviarMensaje: async () => {
+            throw new Error('Fallo simulado de FCM.');
+        }
+    });
+
+    try {
+        const response = await app.inject({
+            method: 'POST',
+            url: '/tasks/notificaciones',
+            headers: { 'x-cron-key': 'test-cron-secret' }
+        });
+
+        assert.equal(response.statusCode, 500);
+        assert.deepEqual(response.json(), {
+            success: false,
+            message: 'No se pudieron enviar todas las notificaciones.',
+            procesados: 1,
+            enviados: 0,
+            fallidos: 1
+        });
+        assert.equal(
+            consultas.some((consulta) => consulta.includes('SET recordatorio_enviado = TRUE')),
+            false
+        );
     } finally {
         if (cronSecretOriginal === undefined) {
             delete process.env.CRON_SECRET;

@@ -1,0 +1,31 @@
+steps:
+  # 1. Construir la imagen Docker desde la carpeta Ingesta
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'southamerica-west1-docker.pkg.dev/$PROJECT_ID/panoramapp-ingesta/ingesta:$COMMIT_SHA'
+      - '-t'
+      - 'southamerica-west1-docker.pkg.dev/$PROJECT_ID/panoramapp-ingesta/ingesta:latest'
+      - './AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Backend/Ingesta'
+
+  # 2. Subir la imagen a Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - '--all-tags'
+      - 'southamerica-west1-docker.pkg.dev/$PROJECT_ID/panoramapp-ingesta/ingesta'
+
+  # 3. Actualizar el Cloud Run Job con la nueva imagen
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'jobs'
+      - 'update'
+      - 'panoramapp-ingesta-diaria'
+      - '--image=southamerica-west1-docker.pkg.dev/$PROJECT_ID/panoramapp-ingesta/ingesta:$COMMIT_SHA'
+      - '--region=southamerica-west1'
+
+images:
+  - 'southamerica-west1-docker.pkg.dev/$PROJECT_ID/panoramapp-ingesta/ingesta:$COMMIT_SHA'

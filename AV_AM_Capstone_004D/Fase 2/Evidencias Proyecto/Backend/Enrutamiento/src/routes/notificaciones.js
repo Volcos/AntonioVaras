@@ -8,7 +8,12 @@ function inicializarFirebase() {
     });
   }
 }
-export default async function rutasNotificaciones(fastify) {
+export default async function rutasNotificaciones(fastify, options = {}) {
+    const enviarMensaje = options.enviarMensaje ?? (mensaje => {
+        inicializarFirebase();
+        return getMessaging().send(mensaje);
+    });
+
     fastify.post('/usuarios/dispositivo', {
         onRequest: [fastify.authenticate]
     }, async (request, reply) => {
@@ -176,9 +181,9 @@ export default async function rutasNotificaciones(fastify) {
 
         let procesados = 0;
         let enviados = 0;
+        let fallidos = 0;
 
         try {
-            inicializarFirebase();
             const pendientes = await fastify.sql`
                 SELECT
                     ri.id_registro,
@@ -200,15 +205,14 @@ export default async function rutasNotificaciones(fastify) {
             for (const pendiente of pendientes) {
                 procesados += 1;
                 try {
-                    inicializarFirebase();
-                    await getMessaging().send({
-                        token: item.fcm_token,
+                    await enviarMensaje({
+                        token: pendiente.fcm_token,
                         notification: {
                             title: '¡Tu evento está por comenzar!',
-                            body: `${item.nombre_evento} en ${item.direccion}`
+                            body: `${pendiente.nombre_evento} en ${pendiente.direccion}`
                         },
                         data: {
-                            id_evento: String(item.id_evento),
+                            id_evento: String(pendiente.id_evento),
                             tipo: 'RECORDATORIO_EVENTO'
                         }
                     });
@@ -220,6 +224,7 @@ export default async function rutasNotificaciones(fastify) {
                         WHERE id_registro = ${pendiente.id_registro};
                     `;
                 } catch (error) {
+                    fallidos += 1;
                     fastify.log.error({ err: error, id_registro: pendiente.id_registro });
                     if (error.code === 'messaging/registration-token-not-registered') {
                         try {
@@ -234,6 +239,16 @@ export default async function rutasNotificaciones(fastify) {
                 }
             }
 
+            if (fallidos > 0) {
+                return reply.code(500).send({
+                    success: false,
+                    message: 'No se pudieron enviar todas las notificaciones.',
+                    procesados,
+                    enviados,
+                    fallidos
+                });
+            }
+
             return reply.code(200).send({
                 success: true,
                 procesados,
@@ -243,7 +258,10 @@ export default async function rutasNotificaciones(fastify) {
             fastify.log.error(error);
             return reply.code(500).send({
                 success: false,
-                message: 'No se pudieron procesar las notificaciones.'
+                message: 'No se pudieron procesar las notificaciones.',
+                procesados,
+                enviados,
+                fallidos
             });
         }
     });

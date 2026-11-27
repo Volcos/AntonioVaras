@@ -482,7 +482,15 @@ export async function extraerDetalleEstructurado(page, url, opciones = {}) {
 }
 
 export async function ejecutarScraperPuntoTicket({ guardarArchivo = true } = {}) {
-  const browser = await chromium.launch({ headless: true });
+  const browser = await chromium.launch({
+  headless: true,
+  args: [
+    '--no-sandbox',
+    '--disable-setuid-sandbox',
+    '--disable-dev-shm-usage',
+    '--disable-gpu'
+  ]
+});
 
   try {
     const context = await browser.newContext({ userAgent: USER_AGENT });

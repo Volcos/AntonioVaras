@@ -5,7 +5,9 @@ import fastifyRateLimit from '@fastify/rate-limit';
 import statusDB from "./App/status.js";
 import dbConnector from "./plugins/db.js"
 import eventos from './App/getAllEvents.js';
+import obtenerEventoPorId from './App/getEventById.js';
 import crearEvento from './App/createEvent.js';
+import actualizarEvento from './App/updateEvent.js';
 import eliminarEvento from './App/deleteEvent.js';
 import tiposEvento from './App/getEventTypes.js';
 import crearUsuario from './User/createUser.js';
@@ -51,8 +53,10 @@ const start = async() => {
         await app.register(statusDB);
         // ej: /status/
         await app.register(eventos);
+        await app.register(obtenerEventoPorId);
         // ej: /eventos/cercanos?lat=-33.43&lng=-70.65
         await app.register(crearEvento);
+        await app.register(actualizarEvento);
         await app.register(eliminarEvento);
         await app.register(tiposEvento);
         await app.register(fastifyMultipart, {
