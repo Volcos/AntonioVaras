@@ -723,16 +723,28 @@ class _ProfileViewState extends State<ProfileView> {
                         ],
                       ),
                       Slider(
-                        value: NotificationService().nearbyRadiusKm,
+                        value: NotificationService().nearbyRadiusKm.clamp(1.0, 10.0),
                         min: 1.0,
-                        max: 50.0,
-                        divisions: 49,
+                        max: 10.0,
+                        divisions: 9,
                         activeColor: Colors.pinkAccent,
                         inactiveColor: Colors.white24,
                         label:
                             '${NotificationService().nearbyRadiusKm.toStringAsFixed(0)} km',
                         onChanged: (val) async {
                           await NotificationService().setNearbyRadiusKm(val);
+                          setModalState(() {});
+                        },
+                      ),
+                      const SizedBox(height: 4),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Mostrar círculo en el mapa', style: TextStyle(color: Colors.white, fontSize: 14)),
+                        subtitle: const Text('Visualizar el radio de proximidad', style: TextStyle(color: Colors.white60, fontSize: 11)),
+                        value: NotificationService().showRadiusCircle,
+                        activeColor: Colors.pinkAccent,
+                        onChanged: (val) async {
+                          await NotificationService().setShowRadiusCircle(val);
                           setModalState(() {});
                         },
                       ),

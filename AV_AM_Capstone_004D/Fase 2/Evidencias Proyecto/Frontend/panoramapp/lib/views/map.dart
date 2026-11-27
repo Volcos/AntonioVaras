@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:async';
+import 'dart:math';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -46,6 +47,8 @@ class _MapViewState extends State<MapView> {
   String? _routeDistance;
   String? _routeDuration;
   Line? _routeLine;
+  final List<Fill> _radiusFills = [];
+  Timer? _radiusDebounce;
   final Map<String, Symbol> _eventSymbols = {};
   final Map<String, ApiEvent> _eventsBySymbolId = {};
 
@@ -53,6 +56,8 @@ class _MapViewState extends State<MapView> {
   void initState() {
     super.initState();
     Webservice.eventRevision.addListener(_onEventsChanged);
+    NotificationService().radiusNotifier.addListener(_onRadiusChanged);
+    NotificationService().showRadiusNotifier.addListener(_onRadiusChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _loadLocationPermission();
@@ -62,11 +67,113 @@ class _MapViewState extends State<MapView> {
 
   @override
   void dispose() {
+    _radiusDebounce?.cancel();
+    NotificationService().showRadiusNotifier.removeListener(_onRadiusChanged);
+    NotificationService().radiusNotifier.removeListener(_onRadiusChanged);
     _mapController?.onSymbolTapped.remove(_onEventSymbolTapped);
     Webservice.eventRevision.removeListener(_onEventsChanged);
     _eventSymbols.clear();
     _eventsBySymbolId.clear();
     super.dispose();
+  }
+
+  void _onRadiusChanged() {
+    _radiusDebounce?.cancel();
+    _radiusDebounce = Timer(const Duration(milliseconds: 150), () {
+      final controller = _mapController;
+      if (controller == null || !mounted) return;
+      final center = LocationService.lastKnownLocation ??
+          controller.cameraPosition?.target ??
+          const LatLng(-33.4488897, -70.6692655);
+      unawaited(_updateRadiusCircle(controller, center));
+    });
+  }
+
+  void _showMapSettings() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: const Color(0xFF202020),
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  'Ajustes del Mapa y Radio',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Notificar Eventos Cercanos', style: TextStyle(color: Colors.white, fontSize: 14)),
+                  subtitle: const Text('Avisar cuando haya un evento en tu radio', style: TextStyle(color: Colors.white60, fontSize: 11)),
+                  value: NotificationService().nearbyNotificationsEnabled,
+                  activeColor: Colors.pinkAccent,
+                  onChanged: (val) async {
+                    await NotificationService().setNearbyNotificationsEnabled(val);
+                    setModalState(() {});
+                    setState(() {});
+                  },
+                ),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Mostrar círculo de radio en el mapa', style: TextStyle(color: Colors.white, fontSize: 14)),
+                  subtitle: const Text('Visualizar el área de detección de cercanía', style: TextStyle(color: Colors.white60, fontSize: 11)),
+                  value: NotificationService().showRadiusCircle,
+                  activeColor: Colors.pinkAccent,
+                  onChanged: (val) async {
+                    await NotificationService().setShowRadiusCircle(val);
+                    setModalState(() {});
+                    setState(() {});
+                  },
+                ),
+                if (NotificationService().showRadiusCircle) ...[
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Distancia de detección (Radio)',
+                        style: TextStyle(color: Colors.white70, fontSize: 13),
+                      ),
+                      Text(
+                        '${NotificationService().nearbyRadiusKm.toStringAsFixed(0)} km',
+                        style: const TextStyle(color: Colors.pinkAccent, fontWeight: FontWeight.bold, fontSize: 13),
+                      ),
+                    ],
+                  ),
+                  Slider(
+                    value: NotificationService().nearbyRadiusKm.clamp(1.0, 5.0),
+                    min: 1.0,
+                    max: 5.0,
+                    divisions: 4,
+                    activeColor: Colors.pinkAccent,
+                    inactiveColor: Colors.white24,
+                    label: '${NotificationService().nearbyRadiusKm.toStringAsFixed(0)} km',
+                    onChanged: (val) async {
+                      await NotificationService().setNearbyRadiusKm(val);
+                      setModalState(() {});
+                      setState(() {});
+                    },
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   void _onEventsChanged() {
@@ -202,6 +309,10 @@ class _MapViewState extends State<MapView> {
 
   void _onUserLocationUpdated(UserLocation location) {
     LocationService.registrarActualizacion(location);
+    final controller = _mapController;
+    if (controller != null) {
+      unawaited(_updateRadiusCircle(controller, location.position));
+    }
     final events = _eventsBySymbolId.values.toList();
     if (events.isNotEmpty) {
       NotificationService().checkAndNotifyNearbyEvents(
@@ -210,6 +321,60 @@ class _MapViewState extends State<MapView> {
         userLng: location.position.longitude,
       );
     }
+  }
+
+  List<LatLng> _generateCirclePoints(LatLng center, double radiusKm, {int points = 64}) {
+    final List<LatLng> result = [];
+    const double earthRadiusKm = 6371.0;
+    final double latRad = center.latitude * (pi / 180.0);
+    final double lonRad = center.longitude * (pi / 180.0);
+    final double d = radiusKm / earthRadiusKm;
+
+    for (int i = 0; i <= points; i++) {
+      final double brng = 2 * pi * i / points;
+      final double latResultRad = asin(
+        sin(latRad) * cos(d) + cos(latRad) * sin(d) * cos(brng),
+      );
+      final double lonResultRad = lonRad + atan2(
+        sin(brng) * sin(d) * cos(latRad),
+        cos(d) - sin(latRad) * sin(latResultRad),
+      );
+      result.add(
+        LatLng(
+          latResultRad * (180.0 / pi),
+          lonResultRad * (180.0 / pi),
+        ),
+      );
+    }
+    return result;
+  }
+
+  Future<void> _updateRadiusCircle(MapLibreMapController controller, LatLng userLocation) async {
+    try {
+      for (final fill in List<Fill>.from(_radiusFills)) {
+        try {
+          await controller.removeFill(fill);
+        } catch (_) {}
+      }
+      _radiusFills.clear();
+
+      if (!NotificationService().showRadiusCircle) {
+        return;
+      }
+
+      final radiusKm = NotificationService().nearbyRadiusKm;
+      final circlePoints = _generateCirclePoints(userLocation, radiusKm);
+
+      final newFill = await controller.addFill(
+        FillOptions(
+          geometry: [circlePoints],
+          fillColor: '#E91E63',
+          fillOpacity: 0.12,
+          fillOutlineColor: '#E91E63',
+        ),
+      );
+      _radiusFills.add(newFill);
+    } catch (_) {}
   }
 
   Future<_EventMarker?> _prepareEventMarker(ApiEvent event, int index) async {
@@ -379,6 +544,11 @@ class _MapViewState extends State<MapView> {
     _eventSymbols.clear();
     _eventsBySymbolId.clear();
     try {
+      final center = LocationService.lastKnownLocation ??
+          controller.cameraPosition?.target ??
+          const LatLng(-33.4488897, -70.6692655);
+      unawaited(_updateRadiusCircle(controller, center));
+
       final destination = await _focusSelectedEvent(controller);
       // 1. Obtenemos todos los eventos usando tu Webservice (el mismo que usa home.dart)
       final eventos = await Webservice.getEvents();
@@ -768,6 +938,28 @@ class _MapViewState extends State<MapView> {
               onUserLocationUpdated: _onUserLocationUpdated,
             ),
             _routeOptions(),
+            Positioned(
+              top: 50,
+              right: 20,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: BackdropFilter(
+                  filter: ui.ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+                  child: GestureDetector(
+                    onTap: _showMapSettings,
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0x33000000),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: const Color(0x4DFFFFFF), width: 0.5),
+                      ),
+                      child: const Icon(CupertinoIcons.gear_solid, color: Colors.white, size: 22),
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),

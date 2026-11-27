@@ -4,17 +4,7 @@
     <option name="autoReloadType" value="NONE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f69f05bb-a385-445e-82d5-550931def469" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Frontend/panoramapp/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Frontend/panoramapp/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Frontend/panoramapp/android/app/build.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Frontend/panoramapp/android/app/build.gradle.kts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Frontend/panoramapp/android/app/src/main/AndroidManifest.xml" beforeDir="false" afterPath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Frontend/panoramapp/android/app/src/main/AndroidManifest.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Frontend/panoramapp/lib/main.dart" beforeDir="false" afterPath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Frontend/panoramapp/lib/main.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Frontend/panoramapp/lib/service/apibenja_service.dart" beforeDir="false" afterPath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Frontend/panoramapp/lib/service/apibenja_service.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Frontend/panoramapp/lib/views/create_event.dart" beforeDir="false" afterPath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Frontend/panoramapp/lib/views/create_event.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Frontend/panoramapp/lib/views/register_view.dart" beforeDir="false" afterPath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Frontend/panoramapp/lib/views/register_view.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Frontend/panoramapp/pubspec.lock" beforeDir="false" afterPath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Frontend/panoramapp/pubspec.lock" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Frontend/panoramapp/pubspec.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/AV_AM_Capstone_004D/Fase 2/Evidencias Proyecto/Frontend/panoramapp/pubspec.yaml" afterDir="false" />
-    </list>
+    <list default="true" id="f69f05bb-a385-445e-82d5-550931def469" name="Changes" comment="" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
